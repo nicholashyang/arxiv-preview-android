@@ -11,9 +11,12 @@ import androidx.work.WorkManager
 import com.example.arxivpreview.AppContainer
 import com.example.arxivpreview.ArxivApplication
 import com.example.arxivpreview.data.AppPreferences
+import com.example.arxivpreview.data.update.AppUpdateState
+import com.example.arxivpreview.data.update.UpdatePhase
 import com.example.arxivpreview.data.local.DownloadEntity
 import com.example.arxivpreview.model.Paper
 import com.example.arxivpreview.worker.DailySyncScheduler
+import com.example.arxivpreview.worker.AppUpdateScheduler
 import com.example.arxivpreview.worker.PdfDownloadWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -263,15 +266,38 @@ class DetailViewModel(
 data class SettingsUiState(
     val preferences: AppPreferences = AppPreferences(),
     val saved: Boolean = false,
+    val update: AppUpdateState = AppUpdateState(),
+    val updateQueued: Boolean = false,
 )
 
 class SettingsViewModel(
     private val container: AppContainer,
     application: Application,
 ) : AndroidViewModel(application) {
-    val state = container.preferencesRepository.preferences
-        .map { SettingsUiState(it) }
+    val state = combine(
+        container.preferencesRepository.preferences,
+        container.appUpdateRepository.state,
+        WorkManager.getInstance(container.context)
+            .getWorkInfosForUniqueWorkLiveData(AppUpdateScheduler.MANUAL_WORK).asFlow(),
+    ) { preferences, update, work ->
+        SettingsUiState(
+            preferences = preferences,
+            update = update,
+            updateQueued = work.any { !it.state.isFinished } && update.phase == UpdatePhase.IDLE,
+        )
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    fun checkForAppUpdate() = AppUpdateScheduler.checkNow(container.context)
+    fun downloadAppUpdate() = AppUpdateScheduler.download(container.context)
+    suspend fun appUpdateInstallIntent() = container.appUpdateRepository.installIntent()
+    fun reportAppUpdateError(message: String) {
+        viewModelScope.launch { container.appUpdateRepository.reportError(message) }
+    }
+
+    fun setAutomaticAppUpdates(enabled: Boolean) {
+        viewModelScope.launch { container.preferencesRepository.setAutomaticAppUpdates(enabled) }
+    }
 
     fun saveCategories(categories: Set<String>) {
         if (categories.isEmpty()) return

@@ -386,38 +386,42 @@ fun SettingsScreen(viewModel: SettingsViewModel, contentPadding: PaddingValues) 
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         )
-        ListItem(
-            headlineContent = { Text("Daily update notifications") },
-            supportingContent = { Text("A summary when new submissions are available") },
-            trailingContent = {
-                Switch(
-                    checked = state.preferences.notificationsEnabled,
-                    onCheckedChange = { enabled ->
-                        if (enabled && Build.VERSION.SDK_INT >= 33) {
-                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.setNotifications(enabled)
-                        }
-                    },
-                )
-            },
-        )
-        HorizontalDivider()
-        Text(
-            "Followed categories",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-        )
-        OutlinedTextField(
-            value = categorySearch,
-            onValueChange = { categorySearch = it },
-            label = { Text("Filter categories") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        )
         val filtered = remember(categorySearch) { filteredCategories(categorySearch) }
         LazyColumn(Modifier.weight(1f)) {
+            item {
+                AppUpdateSettings(state, viewModel)
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Daily update notifications") },
+                    supportingContent = { Text("A summary when new submissions are available") },
+                    trailingContent = {
+                        Switch(
+                            checked = state.preferences.notificationsEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && Build.VERSION.SDK_INT >= 33) {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.setNotifications(enabled)
+                                }
+                            },
+                        )
+                    },
+                )
+                HorizontalDivider()
+                Text(
+                    "Followed categories",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+                OutlinedTextField(
+                    value = categorySearch,
+                    onValueChange = { categorySearch = it },
+                    label = { Text("Filter categories") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                )
+            }
             items(filtered, key = ArxivCategory::code) { category ->
                 CategoryRow(
                     category = category,

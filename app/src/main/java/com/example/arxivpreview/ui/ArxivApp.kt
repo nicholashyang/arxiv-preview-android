@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +45,12 @@ private val destinations = listOf(
 )
 
 @Composable
-fun ArxivApp(application: Application, container: AppContainer) {
+fun ArxivApp(
+    application: Application,
+    container: AppContainer,
+    openUpdates: Boolean = false,
+    onUpdatesOpened: () -> Unit = {},
+) {
     val mainViewModel: MainViewModel = viewModel(factory = ViewModelFactories.main(container))
     val preferences by mainViewModel.preferences.collectAsStateWithLifecycle()
     when {
@@ -57,16 +63,27 @@ fun ArxivApp(application: Application, container: AppContainer) {
             )
             OnboardingScreen(onboarding)
         }
-        else -> MainNavigation(application, container)
+        else -> MainNavigation(application, container, openUpdates, onUpdatesOpened)
     }
 }
 
 @Composable
-private fun MainNavigation(application: Application, container: AppContainer) {
+private fun MainNavigation(
+    application: Application,
+    container: AppContainer,
+    openUpdates: Boolean,
+    onUpdatesOpened: () -> Unit,
+) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBottomBar = destinations.any { it.route == currentRoute }
+    LaunchedEffect(openUpdates) {
+        if (openUpdates) {
+            navController.navigate("settings") { launchSingleTop = true }
+            onUpdatesOpened()
+        }
+    }
 
     Scaffold(
         bottomBar = {

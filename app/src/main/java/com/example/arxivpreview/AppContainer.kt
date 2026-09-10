@@ -7,6 +7,7 @@ import com.example.arxivpreview.data.PaperRepository
 import com.example.arxivpreview.data.PdfFileDownloader
 import com.example.arxivpreview.data.PdfRepository
 import com.example.arxivpreview.data.PreferencesRepository
+import com.example.arxivpreview.data.update.AppUpdateRepository
 import com.example.arxivpreview.data.local.ArxivDatabase
 import com.example.arxivpreview.data.remote.ArxivParser
 import com.example.arxivpreview.data.remote.ArxivRemoteDataSource
@@ -32,7 +33,7 @@ class AppContainer(context: Context) {
         .addInterceptor { chain ->
             chain.proceed(
                 chain.request().newBuilder()
-                    .header("User-Agent", "ArxivPreview/1.0 (Android)")
+                    .header("User-Agent", "ArxivPreview/${BuildConfig.VERSION_NAME} (Android)")
                     .build(),
             )
         }
@@ -49,6 +50,11 @@ class AppContainer(context: Context) {
 
     private val remote = ArxivRemoteDataSource(arxivService, ArxivParser())
     val preferencesRepository = PreferencesRepository(this.context)
+    val appUpdateRepository = AppUpdateRepository(
+        this.context,
+        client.newBuilder().followSslRedirects(false).callTimeout(9, TimeUnit.MINUTES).build(),
+        preferencesRepository,
+    )
     val paperRepository = PaperRepository(database, database.dao(), remote)
     val favoriteRepository = FavoriteRepository(database.dao())
     val pdfFileDownloader = PdfFileDownloader(client)

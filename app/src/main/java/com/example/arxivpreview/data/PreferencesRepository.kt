@@ -16,6 +16,7 @@ data class AppPreferences(
     val categories: Set<String> = emptySet(),
     val notificationsEnabled: Boolean = false,
     val lastPublishedAt: Long = 0L,
+    val automaticAppUpdates: Boolean = false,
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -25,6 +26,7 @@ class PreferencesRepository(private val context: Context) {
             categories = values[CATEGORIES].orEmpty(),
             notificationsEnabled = values[NOTIFICATIONS_ENABLED] ?: false,
             lastPublishedAt = values[LAST_PUBLISHED_AT] ?: 0L,
+            automaticAppUpdates = values[AUTOMATIC_APP_UPDATES] ?: false,
         )
     }
 
@@ -49,10 +51,15 @@ class PreferencesRepository(private val context: Context) {
         context.settingsDataStore.edit { it[LAST_PUBLISHED_AT] = value }
     }
 
+    suspend fun setAutomaticAppUpdates(enabled: Boolean) {
+        context.settingsDataStore.edit { it[AUTOMATIC_APP_UPDATES] = enabled }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val CATEGORIES = stringSetPreferencesKey("categories")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val LAST_PUBLISHED_AT = longPreferencesKey("last_published_at")
+        val AUTOMATIC_APP_UPDATES = booleanPreferencesKey("automatic_app_updates")
     }
 }
