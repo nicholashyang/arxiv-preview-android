@@ -40,7 +40,7 @@ interface ArxivDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFeedItems(items: List<FeedItemEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun addFavorite(favorite: FavoriteEntity)
 
     @Query("DELETE FROM favorites WHERE paperId = :paperId")
@@ -69,4 +69,31 @@ interface ArxivDao {
 
     @Query("DELETE FROM downloads WHERE paperId = :paperId")
     suspend fun removeDownload(paperId: String)
+
+    @Query("SELECT * FROM favorites ORDER BY createdAt DESC")
+    fun observeFavoriteRecords(): Flow<List<FavoriteEntity>>
+    @Query("SELECT * FROM favorites WHERE paperId = :id")
+    suspend fun favorite(id: String): FavoriteEntity?
+    @Query("SELECT * FROM favorite_groups ORDER BY nameKey")
+    fun observeGroups(): Flow<List<FavoriteGroupEntity>>
+    @Query("SELECT * FROM tags ORDER BY nameKey")
+    fun observeTags(): Flow<List<TagEntity>>
+    @Query("SELECT * FROM favorite_tags")
+    fun observeFavoriteTags(): Flow<List<FavoriteTagEntity>>
+    @Query("SELECT * FROM favorite_tags WHERE paperId = :id")
+    suspend fun favoriteTags(id: String): List<FavoriteTagEntity>
+    @Query("SELECT EXISTS(SELECT 1 FROM favorite_groups WHERE nameKey = :key AND id != :exceptId)") suspend fun groupNameExists(key: String, exceptId: Long): Boolean
+    @Query("SELECT EXISTS(SELECT 1 FROM tags WHERE nameKey = :key AND id != :exceptId)") suspend fun tagNameExists(key: String, exceptId: Long): Boolean
+    @Upsert suspend fun saveGroup(group: FavoriteGroupEntity)
+    @Upsert suspend fun saveTag(tag: TagEntity)
+    @Query("UPDATE favorites SET groupId = NULL WHERE groupId = :id")
+    suspend fun ungroup(id: Long)
+    @Query("DELETE FROM favorite_groups WHERE id = :id") suspend fun deleteGroup(id: Long)
+    @Query("DELETE FROM tags WHERE id = :id") suspend fun deleteTag(id: Long)
+    @Query("DELETE FROM favorite_tags WHERE paperId = :id") suspend fun clearTags(id: String)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun addTags(tags: List<FavoriteTagEntity>)
+    @Query("SELECT * FROM favorite_groups WHERE id = :id") suspend fun group(id: Long): FavoriteGroupEntity?
+    @Query("SELECT * FROM tags WHERE id = :id") suspend fun tag(id: Long): TagEntity?
+    @Upsert suspend fun saveProgress(progress: HtmlProgressEntity)
+    @Query("SELECT * FROM html_progress WHERE versionedId = :id") suspend fun progress(id: String): HtmlProgressEntity?
 }

@@ -2,6 +2,17 @@
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
 
+## Version 1.3.0
+
+- Configurable left/right swipe actions with favorite undo.
+- Favorite groups, multiple tags, and local filtering.
+- Title and versioned-link sharing from lists, details, HTML, and PDF.
+- Structured advanced search with field matching, categories, dates, sorting, and exact ID lookup.
+- Mobile HTML layout, reading preferences, contents, page search, and persistent reading position.
+- Grouped settings and reliable system/in-app update reminders.
+
+See [validation and screenshots](docs/VALIDATION-browsing-reading.md).
+
 ## Version 1.2.0
 
 - A classic Apple-inspired interface with large titles, grouped surfaces, restrained separators, and arXiv red accents.
@@ -21,9 +32,18 @@ A local-first Android app for discovering, searching, saving, and reading arXiv 
 - Manually download PDFs for offline reading.
 - Optional daily notifications for new submissions.
 - Current app version in Settings, manual update checks, and APK download/install from GitHub Releases.
-- Optional automatic app updates: check daily on an unmetered network, download, and notify when ready.
+- Automatic daily app update checks, system and in-app reminders, and downloads on request.
 
 The interface is English. Paper metadata is shown as published by arXiv. This is an independent reader; third-party assets and their sources are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Browsing and reading improvements
+
+- Swipe any paper in Latest, Search, or Favorites past 35% of its card width and release to execute an action. Settings → Swipe actions configures each direction: toggle favorite, groups/tags, share, download PDF, more actions, or off. Defaults are right = favorite and left = more. Each card also has a visible more button and accessibility actions. Removing a favorite offers Undo for five seconds, including its original group, tags, and saved date.
+- Favorites support one group and any number of tags per paper. Manage creates, renames, and deletes groups/tags; deleting a group moves its papers to Ungrouped. Local search combines a group filter and all selected tags. Saving organization for a new paper also favorites it. Downloaded PDFs remain independent of favorites.
+- Share opens the Android sharesheet with the title and a versioned official arXiv abstract link. Sharing is available from lists, details, HTML, and PDF; it does not download or attach files.
+- Advanced search offers keyword/title/author/abstract fields, all-word/any-word/phrase matching, multiple categories, inclusive submission dates in UTC, and relevance/submission/update sorting. Different fields are ANDed; categories are ORed. Blank date endpoints are unbounded within the supported arXiv range. ID/link searches are exact, preserve versions, and bypass advanced filters. Editing conditions does not change an existing result set until Search/Apply. Pagination uses submitted conditions and protects against late responses.
+- HTML defaults to a mobile single-column layout. Reader tools offer Contents, Find in page, and Reading settings (original/mobile layout, font sizes 16–24, and line spacing 1.4/1.6/1.8). Wide equations, tables, and code scroll separately. Reading settings and version-specific reading positions persist locally. Official HTML still requires a connection; unavailable pages retain PDF and retry options. This does not provide offline HTML or LaTeX source conversion.
+- Room schema 3 migrates existing data without destructive resets. Previous favorites remain ungrouped; existing PDF paths and legacy identifiers are preserved.
 
 ## Build
 
@@ -53,19 +73,27 @@ DataStore. WorkManager runs durable PDF downloads and the approximate 09:00 dail
 
 ## App updates
 
-Settings displays the installed `BuildConfig.VERSION_NAME` and `VERSION_CODE`. **Check for updates**
-reads the latest stable release from
+Settings groups Appearance, Notifications, App permissions, Content preferences, and About arXiv
+on one page. Content preferences groups followed categories by subject, with expandable lists,
+search, selected counts, and an explicit Save button. App permissions shows notification and
+unknown-app installation access and opens the corresponding Android settings.
+
+About arXiv displays the installed `BuildConfig.VERSION_NAME` and `VERSION_CODE`.
+**Check for updates** reads the latest stable release from
 [`nicholashyang/arxiv-preview-android`](https://github.com/nicholashyang/arxiv-preview-android/releases).
 Choose **Download**, then **Install**. Android may first ask you to allow installs from this app;
-returning from that permission screen continues to the system installer. Cancelling installation
-leaves the download available for another attempt.
+returning from that installation flow continues to the system installer. Opening installation
+permissions from App permissions only manages access and does not launch the installer.
+Cancelling installation leaves the download available for another attempt.
 
-**Automatic app updates** is off by default. Enabling it schedules unique daily WorkManager work
-on Wi-Fi or another unmetered network, with sufficient free storage. Checks and downloads run in
-the background; timing is approximate because Android schedules the work. A ready-update
-notification opens Settings. Downloads still work if notification permission is declined, and
-the ready APK remains in Settings. Disabling the switch cancels automatic work; manual updates
-remain available. Android requires confirmation to install an APK; this is not silent installation.
+Automatic checks are always enabled, including for users who disabled the former automatic
+update switch. Unique daily WorkManager work checks whenever a network is available; timing is
+approximate because Android schedules the work. Checks never download an APK. A new-release
+notification and an in-app prompt open Settings at About arXiv. Each reminder is remembered per
+release and APK, so dismissing the prompt does not repeatedly interrupt reading. The available
+update remains in About arXiv. System notification access and the daily-paper notification
+preference do not affect checks or in-app prompts. Manual downloads also notify when ready.
+Android requires confirmation to install an APK; this is not silent installation.
 
 Publishing compatible updates:
 

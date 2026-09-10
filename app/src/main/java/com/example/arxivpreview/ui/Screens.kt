@@ -1,9 +1,5 @@
 package com.example.arxivpreview.ui
 
-import android.Manifest
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,11 +33,15 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.ui.platform.LocalContext
+import com.example.arxivpreview.data.SwipeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,7 +55,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -172,92 +171,49 @@ fun LatestScreen(
 }
 
 @Composable
-fun SearchScreen(
-    viewModel: SearchViewModel,
-    contentPadding: PaddingValues,
-    onPaperClick: (Paper) -> Unit,
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    var showCategories by remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier
-            .padding(contentPadding)
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-    ) {
-        Text("Search", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 12.dp))
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = state.term,
-            onValueChange = viewModel::setTerm,
-            modifier = Modifier.fillMaxWidth().testTag("search_input"),
-            label = { Text("Title, abstract, author, or arXiv ID") },
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { viewModel.search() }),
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(onClick = { showCategories = true }, modifier = Modifier.weight(1f)) {
-                Text(state.category ?: "All categories", maxLines = 1)
-            }
-            Button(onClick = viewModel::search, enabled = state.term.isNotBlank()) {
-                Text("Search")
-            }
-        }
-        Box(Modifier.weight(1f)) {
-            PaperList(
-                papers = state.papers,
-                loading = state.searching,
-                loadingMore = state.loadingMore,
-                hasMore = state.hasMore,
-                error = state.error,
-                onPaperClick = onPaperClick,
-                onLoadMore = viewModel::loadMore,
-            )
-        }
-    }
-    if (showCategories) {
-        CategoryFilterDialog(
-            selected = state.category,
-            onSelect = {
-                viewModel.setCategory(it)
-                showCategories = false
-            },
-            onDismiss = { showCategories = false },
-        )
-    }
-}
-
-@Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
     contentPadding: PaddingValues,
     onPaperClick: (Paper) -> Unit,
 ) {
     val papers by viewModel.papers.collectAsStateWithLifecycle()
+    val actions = LocalPaperActions.current
+    var query by remember { mutableStateOf("") }
+    var group by remember { mutableStateOf<Long?>(null) } // null: all, -1: ungrouped
+    var tags by remember { mutableStateOf(setOf<Long>()) }
+    LaunchedEffect(actions.groups, actions.tags) {
+        if (group != null && group != -1L && actions.groups.none { it.id == group }) group = null
+        tags = tags.intersect(actions.tags.map { it.id }.toSet())
+    }
+    val filtered = papers.filter { paper ->
+        val record = actions.records.firstOrNull { it.paperId == paper.id }
+        val paperTags = actions.relations.filter { it.paperId == paper.id }.map { it.tagId }.toSet()
+        (group == null || (if (group == -1L) record?.groupId == null else record?.groupId == group)) &&
+            paperTags.containsAll(tags) && (query.isBlank() || listOf(paper.title, paper.summary, paper.authors.joinToString(" "), paper.id).any { it.contains(query.trim(), true) })
+    }
+    var showTags by remember { mutableStateOf(false) }
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Text(
-            "Favorites",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-        )
-        if (papers.isEmpty()) {
-            EmptyMessage(
-                title = "No favorites yet",
-                message = "Open a paper and tap the bookmark to keep it here.",
-            )
-        } else {
-            LazyColumn {
-                items(papers, key = Paper::id) { paper ->
-                    PaperCard(paper, onPaperClick)
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Favorites", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f).padding(20.dp))
+            TextButton(onClick = { actions.managing = true }) { Text("Manage") }
+        }
+        OutlinedTextField(query, { query = it }, label = { Text("Search favorites") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            ChoiceMenu("Group", listOf<Long?>(null, -1L) + actions.groups.map { it.id }, group,
+                { id -> when(id) { null -> "All favorites"; -1L -> "Ungrouped"; else -> actions.groups.firstOrNull { it.id == id }?.name ?: "All favorites" } }, { group = it })
+            Row {
+                TextButton(onClick = { showTags = true }) { Text("Tags (${tags.size})") }
+                TextButton(onClick = { query = ""; group = null; tags = emptySet() }) { Text("Clear filters") }
             }
         }
+        if (filtered.isEmpty()) EmptyMessage("No matching favorites", "Save a paper or change your filters.")
+        else LazyColumn { items(filtered, key = Paper::id) { SwipePaperCard(it, onPaperClick) } }
     }
+    if (showTags) AlertDialog(onDismissRequest = { showTags = false }, title = { Text("Match all selected tags") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) { actions.tags.forEach { tag -> Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(tag.id in tags, { tags = if (it) tags + tag.id else tags - tag.id }); Text(tag.name)
+        } } }
+    }, confirmButton = { TextButton(onClick = { showTags = false }) { Text("Done") } })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -269,6 +225,8 @@ fun DetailScreen(
     onReadHtml: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val actions = LocalPaperActions.current
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -279,7 +237,9 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::toggleFavorite, enabled = state.paper != null) {
+                    IconButton(onClick = { state.paper?.let { sharePaper(context, it) } }, enabled = state.paper != null) { Icon(Icons.Default.Share, "Share paper") }
+                    IconButton(onClick = { actions.organizing = state.paper }, enabled = state.paper != null) { Icon(Icons.Default.Folder, "Groups & tags") }
+                    IconButton(onClick = { state.paper?.let { actions.act(it, SwipeAction.FAVORITE, context) } }, enabled = state.paper != null) {
                         Icon(
                             if (state.favorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                             if (state.favorite) "Remove favorite" else "Add favorite",
@@ -378,105 +338,7 @@ fun DetailScreen(
 }
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, contentPadding: PaddingValues) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    var selected by remember { mutableStateOf(state.preferences.categories) }
-    var categorySearch by remember { mutableStateOf("") }
-    LaunchedEffect(state.preferences.categories) {
-        selected = state.preferences.categories
-    }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted -> viewModel.setNotifications(granted) }
-
-    Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Text(
-            "Settings",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-        )
-        val filtered = remember(categorySearch) { filteredCategories(categorySearch) }
-        LazyColumn(Modifier.weight(1f)) {
-            item {
-                SectionLabel("APPEARANCE")
-                Surface(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Column {
-                        com.example.arxivpreview.data.ThemeMode.entries.forEach { mode ->
-                            Row(
-                                Modifier.fillMaxWidth().clickable { viewModel.setThemeMode(mode) }.padding(horizontal = 16.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(if (mode == com.example.arxivpreview.data.ThemeMode.SYSTEM) "Follow system" else mode.label, Modifier.weight(1f))
-                                RadioButton(selected = state.preferences.themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
-                            }
-                        }
-                    }
-                }
-                SectionLabel("APP & UPDATES")
-                Surface(modifier = Modifier.padding(horizontal = 16.dp), shape = RoundedCornerShape(14.dp)) {
-                    Column { AppUpdateSettings(state, viewModel) }
-                }
-                HorizontalDivider()
-                ListItem(
-                    headlineContent = { Text("Daily update notifications") },
-                    supportingContent = { Text("A summary when new submissions are available") },
-                    trailingContent = {
-                        Switch(
-                            checked = state.preferences.notificationsEnabled,
-                            onCheckedChange = { enabled ->
-                                if (enabled && Build.VERSION.SDK_INT >= 33) {
-                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    viewModel.setNotifications(enabled)
-                                }
-                            },
-                        )
-                    },
-                )
-                HorizontalDivider()
-                Text(
-                    "Followed categories",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                )
-                OutlinedTextField(
-                    value = categorySearch,
-                    onValueChange = { categorySearch = it },
-                    label = { Text("Filter categories") },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                )
-            }
-            items(filtered, key = ArxivCategory::code) { category ->
-                CategoryRow(
-                    category = category,
-                    selected = category.code in selected,
-                    onToggle = {
-                        selected = if (category.code in selected) {
-                            selected - category.code
-                        } else {
-                            selected + category.code
-                        }
-                    },
-                )
-            }
-        }
-        Button(
-            onClick = { viewModel.saveCategories(selected) },
-            enabled = selected.isNotEmpty() && selected != state.preferences.categories,
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-        ) {
-            Text("Save ${selected.size} categories")
-        }
-    }
-}
-
-@Composable
-private fun PaperList(
+internal fun PaperList(
     papers: List<Paper>,
     loading: Boolean,
     loadingMore: Boolean,
@@ -501,7 +363,7 @@ private fun PaperList(
                     )
                 }
             }
-            items(papers, key = Paper::id) { paper -> PaperCard(paper, onPaperClick) }
+            items(papers, key = Paper::id) { paper -> SwipePaperCard(paper, onPaperClick) }
             if (loadingMore) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
@@ -521,7 +383,8 @@ private fun PaperList(
 }
 
 @Composable
-private fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
+internal fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
+    val actions = LocalPaperActions.current
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(16.dp),
@@ -533,7 +396,7 @@ private fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
                     Text(paper.primaryCategory.uppercase(), style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.weight(1f))
-                    Text(formatDate(paper.publishedAt), style = MaterialTheme.typography.bodySmall,
+                    Text(formatDate(paper.publishedAt), modifier = Modifier.padding(end = 48.dp), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(10.dp))
@@ -547,6 +410,10 @@ private fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(Modifier.matchParentSize().semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }.clickable { onPaperClick(paper) })
+            Row(Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface), verticalAlignment = Alignment.CenterVertically) {
+                if (actions.records.any { it.paperId == paper.id }) Icon(Icons.Default.Bookmark, "Saved", Modifier.size(18.dp))
+                IconButton(onClick = { actions.more = paper }) { Icon(Icons.Default.MoreVert, "More actions for ${paper.id}") }
+            }
         }
     }
 }
@@ -624,7 +491,7 @@ private fun CategoryPicker(
 }
 
 @Composable
-private fun CategoryRow(
+internal fun CategoryRow(
     category: ArxivCategory,
     selected: Boolean,
     onToggle: () -> Unit,

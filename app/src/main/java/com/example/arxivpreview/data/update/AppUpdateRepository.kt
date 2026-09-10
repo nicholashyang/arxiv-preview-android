@@ -13,7 +13,6 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.arxivpreview.BuildConfig
-import com.example.arxivpreview.data.PreferencesRepository
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -41,12 +40,12 @@ data class AppUpdateState(
     val phase: UpdatePhase = UpdatePhase.IDLE,
     val progress: Int = 0,
     val error: String? = null,
+    val promptDismissed: Boolean = false,
 )
 
 class AppUpdateRepository(
     private val context: Context,
     private val client: OkHttpClient,
-    private val preferences: PreferencesRepository,
     private val store: DataStore<Preferences> = context.updateDataStore,
     private val directory: File = File(context.filesDir, "updates"),
 ) {
@@ -65,27 +64,30 @@ class AppUpdateRepository(
             readyToInstall = release != null && values[DOWNLOADED_ASSET] == release.assetId &&
                 apkFile(release).isFile && apkFile(release).length() == release.bytes,
             error = values[ERROR],
+            promptDismissed = release != null && values[DISMISSED_PROMPT] == release.reminderKey,
         )
     }
     val state = combine(savedState, activity) { saved, running ->
         saved.copy(phase = running.first, progress = running.second)
     }
 
-    /** Returns a release only when this run downloaded a new APK, for one notification. */
-    suspend fun runUpdate(downloadOnly: Boolean, automatic: Boolean): AppRelease? = mutex.withLock {
+    suspend fun checkForUpdate(): UpdateResult = runOperation(download = false)
+
+    suspend fun downloadUpdate(): UpdateResult = runOperation(download = true)
+
+    private suspend fun runOperation(download: Boolean): UpdateResult = mutex.withLock {
         withContext(Dispatchers.IO) {
-            if (automatic && !preferences.preferences.first().automaticAppUpdates) return@withContext null
             store.edit { it.remove(ERROR) }
             try {
-                val release = if (downloadOnly) {
+                val release = if (download) {
                     savedState.first().release ?: throw IOException("Check for an update before downloading.")
                 } else {
                     activity.value = UpdatePhase.CHECKING to 0
                     checkLatest()
                 }
-                if (release == null || (!downloadOnly && !automatic)) return@withContext null
-                if (automatic && !preferences.preferences.first().automaticAppUpdates) return@withContext null
-                if (savedState.first().readyToInstall) return@withContext null
+                if (release == null) return@withContext UpdateResult.NoChange
+                if (!download) return@withContext UpdateResult.Available(release)
+                if (savedState.first().readyToInstall) return@withContext UpdateResult.NoChange
                 activity.value = UpdatePhase.DOWNLOADING to 0
                 downloader.download(release, apkFile(release)) { activity.value = UpdatePhase.DOWNLOADING to it }
                 activity.value = UpdatePhase.VERIFYING to 100
@@ -98,7 +100,7 @@ class AppUpdateRepository(
                 currentCoroutineContext().ensureActive()
                 store.edit { it[DOWNLOADED_ASSET] = release.assetId }
                 directory.listFiles()?.filter { it != apkFile(release) }?.forEach { it.delete() }
-                release
+                UpdateResult.Downloaded(release)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -109,6 +111,17 @@ class AppUpdateRepository(
                 activity.value = UpdatePhase.IDLE to 0
             }
         }
+    }
+
+    suspend fun dismissPrompt(release: AppRelease) {
+        store.edit { it[DISMISSED_PROMPT] = release.reminderKey }
+    }
+
+    suspend fun shouldNotify(release: AppRelease, ready: Boolean): Boolean =
+        store.data.first()[if (ready) NOTIFIED_READY else NOTIFIED_AVAILABLE] != release.reminderKey
+
+    suspend fun markNotified(release: AppRelease, ready: Boolean) {
+        store.edit { it[if (ready) NOTIFIED_READY else NOTIFIED_AVAILABLE] = release.reminderKey }
     }
 
     private suspend fun checkLatest(): AppRelease? {
@@ -199,6 +212,9 @@ class AppUpdateRepository(
     }
 
     private companion object {
+        val DISMISSED_PROMPT = stringPreferencesKey("dismissed_prompt")
+        val NOTIFIED_AVAILABLE = stringPreferencesKey("notified_available")
+        val NOTIFIED_READY = stringPreferencesKey("notified_ready")
         val RELEASE_JSON = stringPreferencesKey("release_json")
         val LAST_CHECKED = longPreferencesKey("last_checked")
         val DOWNLOADED_ASSET = longPreferencesKey("downloaded_asset")

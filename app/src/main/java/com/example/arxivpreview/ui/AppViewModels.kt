@@ -28,12 +28,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class MainViewModel(container: AppContainer) : ViewModel() {
+class MainViewModel(private val container: AppContainer) : ViewModel() {
     val preferences = container.preferencesRepository.preferences.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         null,
     )
+    val appUpdate = container.appUpdateRepository.state.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUpdateState(),
+    )
+
+    fun dismissUpdatePrompt(release: com.example.arxivpreview.data.update.AppRelease) {
+        viewModelScope.launch { container.appUpdateRepository.dismissPrompt(release) }
+    }
+
 }
 
 class OnboardingViewModel(
@@ -131,72 +139,47 @@ class LatestViewModel(private val container: AppContainer) : ViewModel() {
 }
 
 data class SearchUiState(
-    val term: String = "",
-    val category: String? = null,
-    val papers: List<Paper> = emptyList(),
-    val searching: Boolean = false,
-    val loadingMore: Boolean = false,
-    val hasMore: Boolean = false,
-    val error: String? = null,
+    val draft: com.example.arxivpreview.model.SearchCriteria = com.example.arxivpreview.model.SearchCriteria(),
+    val applied: com.example.arxivpreview.model.SearchCriteria? = null,
+    val papers: List<Paper> = emptyList(), val total: Int = 0, val nextStart: Int = 0,
+    val searching: Boolean = false, val loadingMore: Boolean = false, val hasMore: Boolean = false, val error: String? = null,
 )
-
-class SearchViewModel(private val container: AppContainer) : ViewModel() {
+class SearchViewModel(private val execute: suspend (com.example.arxivpreview.model.SearchCriteria, Int) -> com.example.arxivpreview.model.PaperPage) : ViewModel() {
+    constructor(container: AppContainer) : this({ criteria, start -> container.paperRepository.search(criteria, start) })
     val state = MutableStateFlow(SearchUiState())
-
-    fun setTerm(value: String) = state.update { it.copy(term = value) }
-    fun setCategory(value: String?) = state.update { it.copy(category = value) }
-
-    fun search() {
-        val term = state.value.term.trim()
-        if (term.isEmpty() || state.value.searching) return
-        viewModelScope.launch {
-            state.update { it.copy(searching = true, papers = emptyList(), error = null) }
-            runCatching { container.paperRepository.search(term, state.value.category, 0) }
-                .onSuccess { page ->
-                    state.update {
-                        it.copy(
-                            searching = false,
-                            papers = page.papers,
-                            hasMore = page.papers.size < page.totalResults,
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    state.update {
-                        it.copy(
-                            searching = false,
-                            error = error.message ?: "Search failed",
-                        )
-                    }
-                }
-        }
+    private var job: kotlinx.coroutines.Job? = null
+    private var generation = 0
+    fun edit(criteria: com.example.arxivpreview.model.SearchCriteria) { state.update { it.copy(draft = criteria) } }
+    fun clear() { job?.cancel(); generation++; state.value = SearchUiState() }
+    fun search() = submit(state.value.draft)
+    fun retry() { if (state.value.papers.isNotEmpty()) loadMore() else submit(state.value.applied ?: state.value.draft) }
+    private fun submit(criteria: com.example.arxivpreview.model.SearchCriteria) {
+        criteria.validate()?.let { error -> state.update { it.copy(error = error) }; return }
+        job?.cancel()
+        val token = ++generation
+        state.update { it.copy(applied = criteria, papers = emptyList(), searching = true, loadingMore = false, hasMore = false, error = null, total = 0, nextStart = 0) }
+        job = viewModelScope.launch { fetch(criteria, 0, token) }
     }
-
     fun loadMore() {
         val current = state.value
-        if (current.term.isBlank() || current.loadingMore || !current.hasMore) return
-        viewModelScope.launch {
-            state.update { it.copy(loadingMore = true, error = null) }
-            runCatching {
-                container.paperRepository.search(current.term, current.category, current.papers.size)
-            }.onSuccess { page ->
-                state.update {
-                    val merged = (it.papers + page.papers).distinctBy(Paper::id)
-                    it.copy(
-                        papers = merged,
-                        loadingMore = false,
-                        hasMore = merged.size < page.totalResults && page.papers.isNotEmpty(),
-                    )
-                }
-            }.onFailure { error ->
-                state.update {
-                    it.copy(
-                        loadingMore = false,
-                        error = error.message ?: "Could not load more results",
-                    )
-                }
+        if (current.searching || current.loadingMore || !current.hasMore) return
+        val criteria = current.applied ?: return
+        val token = generation
+        state.update { it.copy(loadingMore = true, error = null) }
+        job = viewModelScope.launch { fetch(criteria, current.nextStart, token) }
+    }
+    private suspend fun fetch(criteria: com.example.arxivpreview.model.SearchCriteria, start: Int, token: Int) {
+        try {
+            val page = execute(criteria, start)
+            if (token != generation) return
+            state.update { current ->
+                val next = start + page.papers.size
+                current.copy(papers = (current.papers + page.papers).distinctBy(Paper::id), total = page.totalResults,
+                    nextStart = next, searching = false, loadingMore = false,
+                    hasMore = criteria.exactId.isEmpty() && page.papers.isNotEmpty() && next < page.totalResults)
             }
-        }
+        } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+        catch (error: Exception) { if (token == generation) state.update { it.copy(searching = false, loadingMore = false, error = error.message ?: "Search failed") } }
     }
 }
 
@@ -288,6 +271,9 @@ class SettingsViewModel(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
+    fun setSwipe(left: Boolean, action: com.example.arxivpreview.data.SwipeAction) {
+        viewModelScope.launch { container.preferencesRepository.setSwipe(left, action) }
+    }
     fun checkForAppUpdate() = AppUpdateScheduler.checkNow(container.context)
     fun downloadAppUpdate() = AppUpdateScheduler.download(container.context)
     suspend fun appUpdateInstallIntent() = container.appUpdateRepository.installIntent()
@@ -297,10 +283,6 @@ class SettingsViewModel(
 
     fun setThemeMode(mode: com.example.arxivpreview.data.ThemeMode) {
         viewModelScope.launch { container.preferencesRepository.setThemeMode(mode) }
-    }
-
-    fun setAutomaticAppUpdates(enabled: Boolean) {
-        viewModelScope.launch { container.preferencesRepository.setAutomaticAppUpdates(enabled) }
     }
 
     fun saveCategories(categories: Set<String>) {
@@ -328,6 +310,7 @@ class PdfViewModel(
         val loading: Boolean = true,
         val fileUri: android.net.Uri? = null,
         val pdfUrl: String? = null,
+        val paper: Paper? = null,
         val error: String? = null,
     )
 
@@ -346,13 +329,13 @@ class PdfViewModel(
                 state.value = State(loading = false, error = "Paper not found")
                 return@launch
             }
-            state.value = state.value.copy(pdfUrl = paper.pdfUrl)
+            state.value = state.value.copy(pdfUrl = paper.pdfUrl, paper = paper)
             try {
                 val file = container.pdfRepository.ensurePreview(paperId, forceDownload)
-                state.value = State(loading = false, fileUri = container.pdfRepository.contentUri(file), pdfUrl = paper.pdfUrl)
+                state.value = State(loading = false, fileUri = container.pdfRepository.contentUri(file), pdfUrl = paper.pdfUrl, paper = paper)
             } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
             catch (error: Exception) {
-                state.value = State(loading = false, pdfUrl = paper.pdfUrl, error = error.message ?: "Could not download PDF")
+                state.value = State(loading = false, pdfUrl = paper.pdfUrl, paper = paper, error = error.message ?: "Could not download PDF")
             }
 
         }

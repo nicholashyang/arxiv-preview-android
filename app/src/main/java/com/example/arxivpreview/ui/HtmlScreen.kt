@@ -11,6 +11,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import com.example.arxivpreview.ArxivApplication
+import com.example.arxivpreview.data.AppPreferences
+import com.example.arxivpreview.data.local.HtmlProgressEntity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,16 +67,57 @@ internal fun HtmlScreen(
         return
     }
     val context = LocalContext.current
+    val container = (context.applicationContext as ArxivApplication).container
+    val loadedPreferences by container.preferencesRepository.preferences.collectAsStateWithLifecycle<com.example.arxivpreview.data.AppPreferences?>(null)
+    val preferences = loadedPreferences ?: AppPreferences()
+    val scope = rememberCoroutineScope()
+    val persistenceScope = container.persistenceScope
+    var storedPosition by remember(paper.canonicalVersionedId) { mutableStateOf<HtmlProgressEntity?>(null) }
+    var positionLoaded by remember(paper.canonicalVersionedId) { mutableStateOf(false) }
+    var contents by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showFind by remember { mutableStateOf(false) }
+    var findText by remember { mutableStateOf("") }
+    var findCount by remember { mutableStateOf("") }
+    var menu by remember { mutableStateOf(false) }
+    LaunchedEffect(paper.canonicalVersionedId) {
+        storedPosition = container.database.dao().progress(paper.canonicalVersionedId)
+        positionLoaded = true
+    }
+    val currentPreferences by rememberUpdatedState(preferences)
     val dark = LocalDarkAppearance.current
     var webView by remember { mutableStateOf<WebView?>(null) }
     var progress by remember { mutableIntStateOf(0) }
+    var readerReady by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val readingState = rememberSaveable(paper.id, saver = HtmlReadingSaver) { HtmlReadingState() }
     var retry by remember { mutableIntStateOf(0) }
     val currentDark by rememberUpdatedState(dark)
     val currentReadPdf by rememberUpdatedState(onReadPdf)
-    fun back() { if (webView?.canGoBack() == true) webView?.goBack() else onBack() }
+    fun capturePosition(view: WebView, save: Boolean = true, after: ((HtmlProgressEntity?) -> Unit)? = null) {
+        if (!readerReady || !isArxivHtml(Uri.parse(view.url ?: ""))) return
+        view.evaluateJavascript(readPositionScript) { raw ->
+            val position = parseHtmlPosition(paper.canonicalVersionedId, raw)
+            if (position != null && save) persistenceScope.launch { container.database.dao().saveProgress(position) }
+            after?.invoke(position)
+        }
+    }
+    fun back() { webView?.let { capturePosition(it) }; if (webView?.canGoBack() == true) webView?.goBack() else onBack() }
     BackHandler { back() }
+    LaunchedEffect(webView, error) {
+        while (error == null) { delay(1_000); webView?.let { if (progress == 100) capturePosition(it) } }
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, webView) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) webView?.let { capturePosition(it) }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(preferences.readerMobile, preferences.readerFont, preferences.readerLine) {
+        webView?.let { view -> capturePosition(view, false) { pos -> applyReaderLayout(view, preferences) { pos?.let { restoreHtmlPosition(view, it) } } } }
+    }
     DisposableEffect(Unit) {
         onDispose { webView?.let { readingState.history = Bundle().also(it::saveState); readingState.scrollY = it.scrollY } }
     }
@@ -75,6 +126,17 @@ internal fun HtmlScreen(
         TopAppBar(title = { Text("HTML") }, navigationIcon = {
             IconButton(onClick = { back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         }, actions = {
+            IconButton(onClick = { sharePaper(context, paper) }) { Icon(Icons.Default.Share, "Share paper") }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Reader tools") }
+                DropdownMenu(menu, { menu = false }) {
+                    DropdownMenuItem(text = { Text("Contents") }, onClick = { menu = false; webView?.evaluateJavascript(readerContentsScript) { raw ->
+                        contents = runCatching { val array = org.json.JSONArray(raw); (0 until array.length()).map { i -> array.getJSONObject(i).let { it.getString("id") to it.getString("title") } } }.getOrDefault(emptyList())
+                    } })
+                    DropdownMenuItem(text = { Text("Find in page") }, onClick = { menu = false; showFind = true })
+                    DropdownMenuItem(text = { Text("Reading settings") }, onClick = { menu = false; showSettings = true })
+                }
+            }
             TextButton(onClick = onReadPdf) { Text("PDF") }
             IconButton(onClick = { openExternal(context, paper.htmlUrl) }) {
                 Icon(Icons.Default.OpenInBrowser, "Open in browser")
@@ -91,7 +153,7 @@ internal fun HtmlScreen(
                         TextButton(onClick = onReadPdf) { Text("Read PDF") }
                     }
                 }
-            } else {
+            } else if (positionLoaded && loadedPreferences != null) {
                 key(paper.id, retry) {
                     AndroidView(factory = { ctx ->
                         var restoreY: Int? = readingState.scrollY
@@ -109,6 +171,7 @@ internal fun HtmlScreen(
                                 displayZoomControls = false
                             }
                             setOnScrollChangeListener { _, _, y, _, _ -> readingState.scrollY = y }
+                            setFindListener { active, count, done -> if (done) findCount = if (count == 0) "No matches" else "${active + 1} / $count" }
                             webChromeClient = object : WebChromeClient() {
                                 override fun onProgressChanged(view: WebView, newProgress: Int) { progress = newProgress }
                             }
@@ -118,7 +181,7 @@ internal fun HtmlScreen(
                                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                                     if (!request.isForMainFrame) return false
                                     val uri = request.url
-                                    if (isArxivHtml(uri)) return false
+                                    if (isArxivHtml(uri) && ArxivIds.versioned(uri.toString()) == paper.canonicalVersionedId) return false
                                     if (uri.host == "arxiv.org" && uri.path.orEmpty().startsWith("/pdf/") &&
                                         ArxivIds.normalize(uri.toString()) == ArxivIds.normalize(paper.canonicalVersionedId)) {
                                         currentReadPdf()
@@ -131,12 +194,18 @@ internal fun HtmlScreen(
                                         return
                                     }
                                     applyHtmlTheme(view, currentDark)
-                                    restoreY?.let { y ->
-                                        view.postVisualStateCallback(1, object : WebView.VisualStateCallback() {
-                                            override fun onComplete(requestId: Long) { view.scrollTo(0, y) }
+                                    val initialY = restoreY
+                                    applyReaderLayout(view, currentPreferences) {
+                                        if (initialY != null) view.postVisualStateCallback(1, object : WebView.VisualStateCallback() {
+                                            override fun onComplete(requestId: Long) {
+                                                if (initialY > 0) view.scrollTo(0, initialY)
+                                                else storedPosition?.let { restoreHtmlPosition(view, it) }
+                                                view.postDelayed({ readerReady = true; view.evaluateJavascript("document.documentElement.dataset.arxivReaderReady='true';", null) }, 150)
+                                            }
                                         })
-                                        restoreY = null
                                     }
+                                    if (initialY == null) readerReady = true
+                                    restoreY = null
                                     readingState.history = Bundle().also(view::saveState)
                                 }
                                 override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
@@ -158,13 +227,44 @@ internal fun HtmlScreen(
                         readingState.history = Bundle().also(it::saveState)
                         readingState.scrollY = it.scrollY
                         readingState.view = null
-                        it.stopLoading(); it.destroy(); webView = null
+                        val released = it
+                        readerReady = false
+                        released.stopLoading()
+                        released.postDelayed({ released.destroy() }, 200)
+                        webView = null
                     })
                 }
                 if (progress < 100) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
             }
         }
     }
+    if (showSettings) AlertDialog(onDismissRequest = { showSettings = false }, title = { Text("Reading settings") }, text = {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Mobile layout", Modifier.weight(1f))
+                Switch(preferences.readerMobile, { enabled -> scope.launch { container.preferencesRepository.setReader(enabled, preferences.readerFont, preferences.readerLine) } })
+            }
+            Text(if (preferences.readerMobile) "Mobile layout" else "Original layout")
+            ChoiceMenu("Font size", listOf(16,18,20,22,24), preferences.readerFont, { it.toString() }, { font -> scope.launch { container.preferencesRepository.setReader(preferences.readerMobile, font, preferences.readerLine) } })
+            ChoiceMenu("Line spacing", listOf(1.4f,1.6f,1.8f), preferences.readerLine, { it.toString() }, { line -> scope.launch { container.preferencesRepository.setReader(preferences.readerMobile, preferences.readerFont, line) } })
+        }
+    }, confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Done") } })
+    contents?.let { headings -> AlertDialog(onDismissRequest = { contents = null }, title = { Text("Contents") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            if (headings.isEmpty()) Text("No section headings available")
+            headings.forEach { (id, title) -> TextButton(onClick = {
+                webView?.evaluateJavascript("document.getElementById(" + org.json.JSONObject.quote(id) + ")?.scrollIntoView();", null); contents = null
+            }) { Text(title) } }
+        }
+    }, confirmButton = { TextButton(onClick = { contents = null }) { Text("Close") } }) }
+    if (showFind) AlertDialog(onDismissRequest = { showFind = false; webView?.clearMatches() }, title = { Text("Find in page") }, text = {
+        Column {
+            OutlinedTextField(findText, { findText = it; webView?.findAllAsync(it) }, singleLine = true, label = { Text("Find text") })
+            Text(findCount)
+            Row { TextButton(onClick = { webView?.findNext(false) }) { Text("Previous") }; TextButton(onClick = { webView?.findNext(true) }) { Text("Next") } }
+        }
+    }, confirmButton = { TextButton(onClick = { showFind = false; webView?.clearMatches() }) { Text("Done") } })
+
 }
 
 private fun applyHtmlTheme(view: WebView, dark: Boolean) {

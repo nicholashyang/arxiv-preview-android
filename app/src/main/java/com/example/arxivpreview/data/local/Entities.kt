@@ -57,6 +57,7 @@ data class FeedItemEntity(
 data class FavoriteEntity(
     @PrimaryKey val paperId: String,
     val createdAt: Long,
+    val groupId: Long? = null,
 )
 
 @Entity(
@@ -110,3 +111,18 @@ fun PaperEntity.toModel() = Paper(
     doi = doi,
     journalReference = journalReference,
 )
+
+@Entity(tableName = "favorite_groups", indices = [Index(value = ["nameKey"], unique = true)])
+data class FavoriteGroupEntity(@PrimaryKey(autoGenerate = true) val id: Long = 0, val name: String, val nameKey: String)
+
+@Entity(tableName = "tags", indices = [Index(value = ["nameKey"], unique = true)])
+data class TagEntity(@PrimaryKey(autoGenerate = true) val id: Long = 0, val name: String, val nameKey: String)
+
+@Entity(tableName = "favorite_tags", primaryKeys = ["paperId", "tagId"],
+    foreignKeys = [ForeignKey(entity = FavoriteEntity::class, parentColumns = ["paperId"], childColumns = ["paperId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = TagEntity::class, parentColumns = ["id"], childColumns = ["tagId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("tagId")])
+data class FavoriteTagEntity(val paperId: String, val tagId: Long)
+
+@Entity(tableName = "html_progress")
+data class HtmlProgressEntity(@PrimaryKey val versionedId: String, val anchor: String, val offset: Double, val ratio: Double)

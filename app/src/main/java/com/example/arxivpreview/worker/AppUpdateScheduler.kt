@@ -5,6 +5,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.Operation
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -15,22 +16,17 @@ object AppUpdateScheduler {
     const val MANUAL_WORK = "manual-app-update"
     const val AUTOMATIC_WORK = "automatic-app-update"
 
-    fun setAutomatic(context: Context, enabled: Boolean) {
+    fun scheduleAutomaticChecks(context: Context): Operation {
         val manager = WorkManager.getInstance(context)
-        if (!enabled) {
-            manager.cancelUniqueWork(AUTOMATIC_WORK)
-            return
-        }
         val request = PeriodicWorkRequestBuilder<AppUpdateWorker>(24, TimeUnit.HOURS)
             .setInputData(workDataOf(AppUpdateWorker.AUTOMATIC to true))
             .setConstraints(
                 Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.UNMETERED)
-                    .setRequiresStorageNotLow(true)
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build(),
             )
             .build()
-        manager.enqueueUniquePeriodicWork(AUTOMATIC_WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
+        return manager.enqueueUniquePeriodicWork(AUTOMATIC_WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
     fun checkNow(context: Context) = enqueue(context, download = false)

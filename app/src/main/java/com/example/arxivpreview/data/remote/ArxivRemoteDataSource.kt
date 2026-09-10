@@ -15,21 +15,24 @@ class ArxivRemoteDataSource(
     private var lastRequestAt = 0L
 
     suspend fun search(
-        query: String,
+        query: String?,
         start: Int,
         maxResults: Int = 20,
         sortBy: String = "submittedDate",
         sortOrder: String = "descending",
+        idList: String? = null,
     ): PaperPage = gate.withLock {
-        val wait = minimumIntervalMillis - (System.currentTimeMillis() - lastRequestAt)
-        if (wait > 0) delay(wait)
+
         var lastError: Throwable? = null
         repeat(3) { attempt ->
             try {
-                val body = service.search(query, start, maxResults, sortBy, sortOrder)
-                lastRequestAt = System.currentTimeMillis()
+                val wait = minimumIntervalMillis - (android.os.SystemClock.elapsedRealtime() - lastRequestAt)
+                if (wait > 0) delay(wait)
+                lastRequestAt = android.os.SystemClock.elapsedRealtime()
+                val body = service.search(query, idList, start, maxResults, sortBy, sortOrder)
                 body.use { return@withLock parser.parse(it.byteStream()) }
-            } catch (error: Throwable) {
+            } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel
+            } catch (error: Exception) {
                 lastError = error
                 if (attempt < 2) delay(1_000L shl attempt)
             }

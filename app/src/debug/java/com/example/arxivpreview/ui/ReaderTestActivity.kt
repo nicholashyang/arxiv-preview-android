@@ -26,6 +26,13 @@ class ReaderTestActivity : FragmentActivity() {
                             1, 1, "cs.CL", listOf("cs.CL"), "https://arxiv.org/abs/2501.12948v1", "https://arxiv.org/pdf/2501.12948v1", null, null),
                         onBack = { finish() }, interceptRequest = htmlInterceptor, onReadPdf = { pdfRequests.incrementAndGet() },
                     )
+                    "actions" -> PaperActionsHost((application as com.example.arxivpreview.ArxivApplication).container) {
+                        androidx.compose.foundation.lazy.LazyColumn {
+                            items(8) { index -> SwipePaperCard(
+                                com.example.arxivpreview.model.Paper("2501.1294$index", "2501.1294${index}v1", "Action fixture $index", "Abstract", listOf("Author"),
+                                    1, 1, "cs.CL", listOf("cs.CL"), "https://arxiv.org/abs/2501.1294${index}v1", "https://arxiv.org/pdf/2501.1294${index}v1", null, null), {}) }
+                        }
+                    }
                     "math" -> Column(Modifier.fillMaxSize()) {
                         MathText(intent.getStringExtra("text").orEmpty())
                     }

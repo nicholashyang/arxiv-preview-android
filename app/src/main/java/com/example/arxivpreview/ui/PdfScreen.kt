@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,6 +40,7 @@ fun PdfScreen(viewModel: PdfViewModel, onBack: () -> Unit) {
         TopAppBar(title = { Text("PDF") }, navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         }, actions = {
+            state.paper?.let { paper -> IconButton(onClick = { sharePaper(context, paper) }) { Icon(Icons.Default.Share, "Share paper") } }
             if (!basic && state.fileUri != null) TextButton(onClick = { basic = true }) { Text("Basic reader") }
             IconButton(onClick = { viewModel.retry(forceDownload = true) }, enabled = !state.loading) {
                 Icon(Icons.Default.Refresh, "Download PDF again")

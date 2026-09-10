@@ -44,8 +44,10 @@ class PaperRepository(
         return page
     }
 
-    suspend fun search(term: String, category: String?, start: Int): PaperPage {
-        val page = remote.search(searchQuery(term, category), start, sortBy = "relevance")
+    suspend fun search(criteria: com.example.arxivpreview.model.SearchCriteria, start: Int): PaperPage {
+        val page = if (criteria.exactId.isNotEmpty()) remote.search(null, 0, 1, idList = criteria.exactId)
+        else remote.search(criteria.query(), start, sortBy = criteria.sort.api,
+            sortOrder = if (criteria.ascending && criteria.sort != com.example.arxivpreview.model.SearchSort.RELEVANCE) "ascending" else "descending")
         dao.upsertPapers(page.papers.map(Paper::toEntity))
         return page
     }

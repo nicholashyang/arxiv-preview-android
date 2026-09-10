@@ -36,7 +36,7 @@ class LegacyIdMigrationTest {
             close()
         }
         val room = Room.databaseBuilder(context, ArxivDatabase::class.java, name)
-            .addMigrations(MIGRATION_1_2).allowMainThreadQueries().build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3).allowMainThreadQueries().build()
         room.openHelper.writableDatabase.apply {
             query("SELECT id, versionedId FROM papers").use {
                 assertTrue(it.moveToFirst()); assertEquals("hep-th/9901001", it.getString(0)); assertEquals("hep-th/9901001v2", it.getString(1))

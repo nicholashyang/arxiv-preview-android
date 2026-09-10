@@ -10,8 +10,9 @@ import androidx.room.TypeConverters
         FeedItemEntity::class,
         FavoriteEntity::class,
         DownloadEntity::class,
+        FavoriteGroupEntity::class, TagEntity::class, FavoriteTagEntity::class, HtmlProgressEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -47,5 +48,18 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
             }
             db.execSQL("DELETE FROM papers WHERE id = ?", arrayOf(r.old))
         }
+    }
+}
+
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE favorites ADD COLUMN groupId INTEGER")
+        db.execSQL("CREATE TABLE IF NOT EXISTS favorite_groups (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, nameKey TEXT NOT NULL)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_favorite_groups_nameKey ON favorite_groups (nameKey)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, nameKey TEXT NOT NULL)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_tags_nameKey ON tags (nameKey)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS favorite_tags (paperId TEXT NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY(paperId, tagId), FOREIGN KEY(paperId) REFERENCES favorites(paperId) ON DELETE CASCADE, FOREIGN KEY(tagId) REFERENCES tags(id) ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_favorite_tags_tagId ON favorite_tags (tagId)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS html_progress (versionedId TEXT NOT NULL PRIMARY KEY, anchor TEXT NOT NULL, offset REAL NOT NULL, ratio REAL NOT NULL)")
     }
 }

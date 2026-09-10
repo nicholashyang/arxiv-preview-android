@@ -7,7 +7,8 @@ import retrofit2.http.Query
 interface ArxivService {
     @GET("api/query")
     suspend fun search(
-        @Query("search_query") query: String,
+        @Query("search_query") query: String?,
+        @Query("id_list") idList: String?,
         @Query("start") start: Int,
         @Query("max_results") maxResults: Int,
         @Query("sortBy") sortBy: String,

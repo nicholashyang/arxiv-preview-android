@@ -19,12 +19,13 @@ import retrofit2.Retrofit
 
 class AppContainer(context: Context) {
     val context: Context = context.applicationContext
+    val persistenceScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
 
     val database: ArxivDatabase = Room.databaseBuilder(
         this.context,
         ArxivDatabase::class.java,
         "arxiv-preview.db",
-    ).addMigrations(com.example.arxivpreview.data.local.MIGRATION_1_2).build()
+    ).addMigrations(com.example.arxivpreview.data.local.MIGRATION_1_2, com.example.arxivpreview.data.local.MIGRATION_2_3).build()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -53,10 +54,9 @@ class AppContainer(context: Context) {
     val appUpdateRepository = AppUpdateRepository(
         this.context,
         client.newBuilder().followSslRedirects(false).callTimeout(9, TimeUnit.MINUTES).build(),
-        preferencesRepository,
     )
     val paperRepository = PaperRepository(database, database.dao(), remote)
-    val favoriteRepository = FavoriteRepository(database.dao())
+    val favoriteRepository = FavoriteRepository(database)
     val pdfFileDownloader = PdfFileDownloader(client)
     val pdfRepository = PdfRepository(this.context, database.dao(), pdfFileDownloader)
 }

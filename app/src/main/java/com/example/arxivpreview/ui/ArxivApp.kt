@@ -21,6 +21,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,7 +75,7 @@ fun ArxivApp(
             )
             OnboardingScreen(onboarding)
         }
-        else -> MainNavigation(application, container, openUpdates, onUpdatesOpened)
+        else -> PaperActionsHost(container) { MainNavigation(application, container, openUpdates, onUpdatesOpened) }
     }
 }
 
@@ -78,14 +87,42 @@ private fun MainNavigation(
     onUpdatesOpened: () -> Unit,
 ) {
     val navController = rememberNavController()
+    val mainViewModel: MainViewModel = viewModel(factory = ViewModelFactories.main(container))
+    val update by mainViewModel.appUpdate.collectAsStateWithLifecycle()
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    var openAbout by rememberSaveable { mutableStateOf(false) }
+    var aboutVisible by remember { mutableStateOf(false) }
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBottomBar = destinations.any { it.route == currentRoute }
     LaunchedEffect(openUpdates) {
         if (openUpdates) {
+            openAbout = true
             navController.navigate("settings") { launchSingleTop = true }
             onUpdatesOpened()
         }
+    }
+
+    val release = update.release
+    LaunchedEffect(aboutVisible, release, update.promptDismissed) {
+        if (aboutVisible && release != null && !update.promptDismissed) mainViewModel.dismissUpdatePrompt(release)
+    }
+    if (release != null && !update.promptDismissed && !openUpdates && !openAbout &&
+        currentRoute != "settings" && currentRoute != null && lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    ) {
+        AlertDialog(
+            onDismissRequest = { mainViewModel.dismissUpdatePrompt(release) },
+            title = { Text("arXiV ${release.version} is available") },
+            text = { Text(if (update.readyToInstall) "An update is ready to install." else "A new version is available. Review it and download when you’re ready.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mainViewModel.dismissUpdatePrompt(release)
+                    openAbout = true
+                    navController.navigate("settings") { launchSingleTop = true }
+                }) { Text("View update") }
+            },
+            dismissButton = { TextButton(onClick = { mainViewModel.dismissUpdatePrompt(release) }) { Text("Later") } },
+        )
     }
 
     Scaffold(
@@ -162,7 +199,9 @@ private fun MainNavigation(
                 val vm: SettingsViewModel = viewModel(
                     factory = ViewModelFactories.settings(container, application),
                 )
-                SettingsScreen(vm, padding)
+                SettingsScreen(vm, padding, openAbout = openAbout,
+                    onAboutOpened = { openAbout = false },
+                    onAboutVisible = { aboutVisible = it })
             }
             composable(
                 route = "detail/{paperId}",

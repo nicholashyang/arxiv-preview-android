@@ -1,9 +1,6 @@
 package com.example.arxivpreview.ui
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,7 +18,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.example.arxivpreview.BuildConfig
 import com.example.arxivpreview.data.update.UpdatePhase
@@ -78,31 +73,12 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
             viewModel.reportAppUpdateError("Allow installs from arXiV to install this update. Tap Install to try again.")
         }
     }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        // Automatic downloads also work without notifications; Settings always shows a ready APK.
-    }
-
     ListItem(
         headlineContent = { Text("Current version") },
         supportingContent = { Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") },
     )
-    ListItem(
-        headlineContent = { Text("Automatic app updates") },
-        supportingContent = { Text("Check daily and download over Wi-Fi or another unmetered network. Android asks you to confirm installation.") },
-        trailingContent = {
-            Switch(
-                checked = state.preferences.automaticAppUpdates,
-                onCheckedChange = { enabled ->
-                    viewModel.setAutomaticAppUpdates(enabled)
-                    if (enabled && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.POST_NOTIFICATIONS,
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                },
-            )
-        },
-    )
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Updates are checked automatically every day. Download when you’re ready.", style = MaterialTheme.typography.bodySmall)
         Text(
             when (update.phase) {
                 UpdatePhase.CHECKING -> "Checking for updates…"

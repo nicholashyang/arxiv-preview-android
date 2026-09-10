@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -43,11 +44,12 @@ class DailySyncWorker(
     }
 
     private fun notifyNewPapers(count: Int) {
-        if (ContextCompat.checkSelfPermission(
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 applicationContext,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) return
+        if (!NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) return
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
@@ -75,7 +77,11 @@ class DailySyncWorker(
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify(NOTIFICATION_ID, notification)
+        try {
+            NotificationManagerCompat.from(applicationContext).notify(NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            // Access can be revoked between the check and delivery.
+        }
     }
 
     companion object {
