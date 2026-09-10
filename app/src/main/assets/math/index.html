@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'none'; connect-src 'none'">
+<link rel="stylesheet" href="katex.min.css"><style>
+html,body{margin:0;padding:0;background:transparent;overflow-x:hidden}body{font-family:system-ui,sans-serif}#text{overflow-wrap:anywhere}#text.preview{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}.katex-display{overflow-x:auto;overflow-y:hidden;margin:.5em 0}.preview .katex-display{display:inline-block;margin:0;max-width:100%;vertical-align:middle}.katex{font-size:1.05em}#text>.katex{display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle}
+</style><script src="katex.min.js"></script><script src="contrib/auto-render.min.js"></script></head><body><div id="text"></div><script>
+const cache=new Map(); let generation=0;
+function showPaper(data){
+ generation=data.generation;
+ const e=document.getElementById('text');
+ document.body.style.color=data.color; document.body.style.fontSize=data.fontSize+'px';
+ document.body.style.lineHeight=data.lineHeight+'px'; document.body.style.fontWeight=data.weight;
+ e.className=data.maxLines>0?'preview':''; e.style.webkitLineClamp=data.maxLines>0?String(data.maxLines):'';
+ if(cache.has(data.text)){e.innerHTML=cache.get(data.text);}else{
+ e.textContent=data.text;
+ try{renderMathInElement(e,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,errorColor:'inherit',macros:{}});}catch(error){e.textContent=data.text;}
+ cache.set(data.text,e.innerHTML);if(cache.size>32)cache.delete(cache.keys().next().value);
+ }
+ report();document.fonts.ready.then(report);
+}
+function report(){requestAnimationFrame(()=>{if(window.MathHeight)window.MathHeight.update(generation,Math.ceil(document.getElementById('text').getBoundingClientRect().height));});}
+new ResizeObserver(report).observe(document.getElementById('text'));
+</script></body></html>

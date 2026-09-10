@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,9 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -66,6 +70,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,7 +96,7 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
                     .statusBarsPadding()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
-                Text("Welcome to arXiv Preview", style = MaterialTheme.typography.headlineMedium)
+                Text("Welcome to arXiV", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Choose at least one category for your daily feed. You can change this later.",
@@ -105,6 +111,7 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
+                    .navigationBarsPadding()
                     .testTag("continue"),
             ) {
                 Text("Continue with ${selected.size} selected")
@@ -259,6 +266,7 @@ fun DetailScreen(
     viewModel: DetailViewModel,
     onBack: () -> Unit,
     onReadPdf: () -> Unit,
+    onReadHtml: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Scaffold(
@@ -294,7 +302,7 @@ fun DetailScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            Text(paper.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            MathText(paper.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             Text(
                 paper.authors.joinToString(", "),
@@ -316,7 +324,7 @@ fun DetailScreen(
             HorizontalDivider(Modifier.padding(vertical = 18.dp))
             Text("Abstract", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
-            Text(paper.summary, style = MaterialTheme.typography.bodyLarge)
+            MathText(paper.summary, style = MaterialTheme.typography.bodyLarge)
             paper.journalReference?.let {
                 Spacer(Modifier.height(16.dp))
                 Text("Journal reference", fontWeight = FontWeight.SemiBold)
@@ -328,10 +336,11 @@ fun DetailScreen(
                 Text(it)
             }
             Spacer(Modifier.height(24.dp))
-            Button(onClick = onReadPdf, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.PictureAsPdf, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (state.download != null) "Read offline PDF" else "Read PDF")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onReadHtml, modifier = Modifier.weight(1f)) { Text("Read HTML") }
+                OutlinedButton(onClick = onReadPdf, modifier = Modifier.weight(1f)) {
+                    Text(if (state.download != null) "Offline PDF" else "Read PDF")
+                }
             }
             Spacer(Modifier.height(10.dp))
             when {
@@ -389,7 +398,27 @@ fun SettingsScreen(viewModel: SettingsViewModel, contentPadding: PaddingValues) 
         val filtered = remember(categorySearch) { filteredCategories(categorySearch) }
         LazyColumn(Modifier.weight(1f)) {
             item {
-                AppUpdateSettings(state, viewModel)
+                SectionLabel("APPEARANCE")
+                Surface(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Column {
+                        com.example.arxivpreview.data.ThemeMode.entries.forEach { mode ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { viewModel.setThemeMode(mode) }.padding(horizontal = 16.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(if (mode == com.example.arxivpreview.data.ThemeMode.SYSTEM) "Follow system" else mode.label, Modifier.weight(1f))
+                                RadioButton(selected = state.preferences.themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
+                            }
+                        }
+                    }
+                }
+                SectionLabel("APP & UPDATES")
+                Surface(modifier = Modifier.padding(horizontal = 16.dp), shape = RoundedCornerShape(14.dp)) {
+                    Column { AppUpdateSettings(state, viewModel) }
+                }
                 HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("Daily update notifications") },
@@ -494,47 +523,38 @@ private fun PaperList(
 @Composable
 private fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-            .clickable { onPaperClick(paper) },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                paper.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                paper.authors.take(4).joinToString(", ") +
-                    if (paper.authors.size > 4) " et al." else "",
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                paper.summary,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(10.dp))
-            Row {
-                Text(
-                    paper.primaryCategory,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    formatDate(paper.publishedAt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Box {
+            Column(Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(paper.primaryCategory.uppercase(), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.weight(1f))
+                    Text(formatDate(paper.publishedAt), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(10.dp))
+                MathText(paper.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(7.dp))
+                Text(paper.authors.take(4).joinToString(", ") + if (paper.authors.size > 4) " et al." else "",
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                MathText(paper.summary, maxLines = 3, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            Box(Modifier.matchParentSize().semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }.clickable { onPaperClick(paper) })
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, modifier = Modifier.padding(start = 32.dp, end = 20.dp, top = 24.dp, bottom = 8.dp),
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -610,7 +630,7 @@ private fun CategoryRow(
     onToggle: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

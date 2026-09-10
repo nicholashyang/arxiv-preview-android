@@ -23,13 +23,21 @@ class PdfRepository(
 ) {
     fun observeDownload(paperId: String): Flow<DownloadEntity?> = dao.observeDownload(paperId)
 
-    suspend fun ensurePreview(paperId: String): File = withContext(Dispatchers.IO) {
-        dao.getDownload(paperId)?.let { stored ->
-            File(stored.filePath).takeIf(File::exists)?.let { return@withContext it }
-        }
+    suspend fun ensurePreview(paperId: String, forceDownload: Boolean = false): File = withContext(Dispatchers.IO) {
         val paper = requireNotNull(dao.getPaper(paperId)) { "Paper not found" }
+        dao.getDownload(paperId)?.let { stored ->
+            val file = File(stored.filePath)
+            if (forceDownload) {
+                val bytes = downloader.download(paper.pdfUrl, file)
+                dao.upsertDownload(stored.copy(versionedId = paper.versionedId, bytes = bytes, downloadedAt = System.currentTimeMillis()))
+                return@withContext file
+            }
+            if (file.exists() && runCatching { downloader.validatePdf(file) }.isSuccess) return@withContext file
+        }
         val target = File(context.cacheDir, "pdfs/${safeFileName(paper.versionedId)}.pdf")
-        if (!target.exists()) downloader.download(paper.pdfUrl, target)
+        if (forceDownload || !target.exists() || runCatching { downloader.validatePdf(target) }.isFailure) {
+            downloader.download(paper.pdfUrl, target)
+        }
         target
     }
 

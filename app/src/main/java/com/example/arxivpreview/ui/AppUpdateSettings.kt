@@ -75,7 +75,7 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
         if (context.packageManager.canRequestPackageInstalls()) {
             launchInstaller()
         } else {
-            viewModel.reportAppUpdateError("Allow installs from arXiv Preview to install this update. Tap Install to try again.")
+            viewModel.reportAppUpdateError("Allow installs from arXiV to install this update. Tap Install to try again.")
         }
     }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -114,7 +114,7 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
                     release != null -> "Version ${release.version} is available"
                     update.error != null -> "Could not complete the update. Please try again."
                     update.lastCheckedAt > 0 -> "You’re up to date"
-                    else -> "Check for a newer version of arXiv Preview"
+                    else -> "Check for a newer version of arXiV"
                 }
             },
             style = MaterialTheme.typography.bodyLarge,

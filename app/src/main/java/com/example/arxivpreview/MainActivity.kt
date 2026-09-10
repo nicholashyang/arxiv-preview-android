@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.arxivpreview.data.AppPreferences
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.arxivpreview.ui.ArxivApp
@@ -19,8 +21,10 @@ class MainActivity : FragmentActivity() {
         consumeUpdateIntent(intent)
         enableEdgeToEdge()
         setContent {
-            ArxivPreviewTheme {
-                ArxivApp(
+            val container = (application as ArxivApplication).container
+            val preferences by container.preferencesRepository.preferences.collectAsStateWithLifecycle(initialValue = null)
+            ArxivPreviewTheme(preferences?.themeMode ?: com.example.arxivpreview.data.ThemeMode.SYSTEM) {
+                if (preferences != null) ArxivApp(
                     application = application,
                     container = (application as ArxivApplication).container,
                     openUpdates = openUpdates,

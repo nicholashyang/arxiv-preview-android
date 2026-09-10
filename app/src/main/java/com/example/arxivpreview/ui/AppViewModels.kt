@@ -295,6 +295,10 @@ class SettingsViewModel(
         viewModelScope.launch { container.appUpdateRepository.reportError(message) }
     }
 
+    fun setThemeMode(mode: com.example.arxivpreview.data.ThemeMode) {
+        viewModelScope.launch { container.preferencesRepository.setThemeMode(mode) }
+    }
+
     fun setAutomaticAppUpdates(enabled: Boolean) {
         viewModelScope.launch { container.preferencesRepository.setAutomaticAppUpdates(enabled) }
     }
@@ -329,29 +333,28 @@ class PdfViewModel(
 
     val state = MutableStateFlow(State())
 
-    init {
-        viewModelScope.launch {
+    private var loadJob: kotlinx.coroutines.Job? = null
+
+    init { retry() }
+
+    fun retry(forceDownload: Boolean = false) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            state.value = State()
             val paper = container.paperRepository.getPaper(paperId)
             if (paper == null) {
                 state.value = State(loading = false, error = "Paper not found")
                 return@launch
             }
             state.value = state.value.copy(pdfUrl = paper.pdfUrl)
-            runCatching { container.pdfRepository.ensurePreview(paperId) }
-                .onSuccess { file ->
-                    state.value = State(
-                        loading = false,
-                        fileUri = container.pdfRepository.contentUri(file),
-                        pdfUrl = paper.pdfUrl,
-                    )
-                }
-                .onFailure { error ->
-                    state.value = State(
-                        loading = false,
-                        pdfUrl = paper.pdfUrl,
-                        error = error.message ?: "Could not download PDF",
-                    )
-                }
+            try {
+                val file = container.pdfRepository.ensurePreview(paperId, forceDownload)
+                state.value = State(loading = false, fileUri = container.pdfRepository.contentUri(file), pdfUrl = paper.pdfUrl)
+            } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+            catch (error: Exception) {
+                state.value = State(loading = false, pdfUrl = paper.pdfUrl, error = error.message ?: "Could not download PDF")
+            }
+
         }
     }
 }

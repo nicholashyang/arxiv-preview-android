@@ -43,7 +43,7 @@ class PdfFileDownloader(private val client: OkHttpClient) {
         }
     }
 
-    private fun validatePdf(file: File) {
+    fun validatePdf(file: File) {
         if (file.length() < 5) throw IOException("Downloaded file is empty")
         val header = file.inputStream().use { input ->
             ByteArray(5).also { input.read(it) }.decodeToString()

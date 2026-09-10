@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">arXiv Preview</string>
+    <string name="app_name">arXiV</string>
     <string name="notification_channel_name">Daily arXiv updates</string>
     <string name="notification_channel_description">New papers in followed categories</string>
 </resources>

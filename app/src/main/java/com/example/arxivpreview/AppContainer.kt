@@ -24,7 +24,7 @@ class AppContainer(context: Context) {
         this.context,
         ArxivDatabase::class.java,
         "arxiv-preview.db",
-    ).build()
+    ).addMigrations(com.example.arxivpreview.data.local.MIGRATION_1_2).build()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)

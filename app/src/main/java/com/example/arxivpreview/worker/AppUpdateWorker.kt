@@ -60,8 +60,8 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher)
-            .setContentTitle("arXiv Preview $version is ready")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("arXiV $version is ready")
             .setContentText("Tap to review and install the downloaded update.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

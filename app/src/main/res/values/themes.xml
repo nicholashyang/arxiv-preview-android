@@ -1,10 +1,10 @@
 <resources>
-    <style name="Theme.ArxivPreview" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="Theme.ArxivPreview" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:colorAccent">#B3261E</item>
+        <item name="android:colorAccent">#B31B1B</item>
         <item name="windowActionModeOverlay">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="windowNoTitle">true</item>

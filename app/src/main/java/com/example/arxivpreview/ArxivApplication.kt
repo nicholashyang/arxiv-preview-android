@@ -15,6 +15,8 @@ class ArxivApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // AndroidX PDF runs a separate service process without the main WorkManager initializer.
+        if (getProcessName() != packageName) return
         applicationScope.launch {
             container.preferencesRepository.preferences.map { it.automaticAppUpdates }
                 .distinctUntilChanged().collect { enabled ->

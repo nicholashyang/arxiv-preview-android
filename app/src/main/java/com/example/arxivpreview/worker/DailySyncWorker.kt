@@ -69,7 +69,7 @@ class DailySyncWorker(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("$count new arXiv ${if (count == 1) "paper" else "papers"}")
             .setContentText("New submissions are ready in your followed categories.")
             .setContentIntent(pendingIntent)

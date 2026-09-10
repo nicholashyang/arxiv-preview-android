@@ -1,19 +1,29 @@
-# arXiv Preview
+# arXiV
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
+
+## Version 1.2.0
+
+- A classic Apple-inspired interface with large titles, grouped surfaces, restrained separators, and arXiv red accents.
+- The arXiv logomark as an adaptive launcher icon and the app name **arXiV**.
+- **Settings → Appearance** offers Follow system, Light, and Dark; the choice persists across restarts.
+- Offline formula typesetting in paper titles and abstracts throughout Latest, Search, Favorites, and details. KaTeX 0.18.7 and its fonts are bundled; unsupported expressions remain readable as source text.
+- Equal **Read HTML** and **Read PDF** actions. HTML uses the official versioned arXiv page, retains images, math and in-page links, follows the app appearance, and restores reading position. HTML requires a connection and is not available for every paper; PDF remains available as an alternative.
+- Fixed PDF crashes caused by assigning a document before fragment attachment, missing native view theme attributes, and running update scheduling in the PDF service process.
+- The Jetpack PDF reader is used on compatible systems. An in-app basic reader provides offline pages, Previous/Next, pinch zoom, panning and Fit on other devices or if Jetpack loading fails. The basic reader does not offer text selection or full-text search. PDF page colors remain unchanged in dark mode.
+- Legacy arXiv identifiers preserve category prefixes. A database migration preserves favorites, feed entries and offline file paths when correcting existing IDs.
 
 ## Features
 
 - Follow any active arXiv category and browse a daily feed.
 - Search titles, abstracts, authors, and arXiv IDs.
 - Save favorites locally with Room.
-- Read PDFs in-app with Jetpack PDF, or fall back to a browser.
 - Manually download PDFs for offline reading.
 - Optional daily notifications for new submissions.
 - Current app version in Settings, manual update checks, and APK download/install from GitHub Releases.
 - Optional automatic app updates: check daily on an unmetered network, download, and notify when ready.
 
-The UI is English-only in version 1. Paper metadata is shown as published by arXiv.
+The interface is English. Paper metadata is shown as published by arXiv. This is an independent reader; third-party assets and their sources are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Build
 
@@ -26,7 +36,7 @@ Create `local.properties` with your Android SDK location if Android Studio does 
 then run:
 
 ```shell
-./gradlew testDebugUnitTest assembleDebug
+./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
 ```
 
 Instrumentation tests require an Android 12+ emulator:
@@ -66,7 +76,7 @@ Publishing compatible updates:
    `arxiv-preview-v<versionName>-universal.apk`. A single `arxiv-preview-*.apk` is also supported,
    including the existing `-preview.apk` naming. Unsigned and ambiguous sets of APKs are rejected.
 4. Use the same signing certificate as the installed app. The first public preview was debug-signed;
-   an update to that preview must use that same debug key. A new signing key cannot replace it.
+   an update to that preview must use that same debug key. A new signing key cannot replace it. The v1.2.0 release must keep the same certificate.
 5. Publish the release with its uploaded asset and GitHub-generated SHA-256 digest. Drafts and
    prereleases are ignored. APK size, digest, package name, version code/name, Android minimum
    version, and signing certificate are checked before offering installation. The digest and APK

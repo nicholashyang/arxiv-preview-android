@@ -13,6 +13,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,9 +91,14 @@ private fun MainNavigation(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = androidx.compose.ui.unit.Dp(0f)) {
                     destinations.forEach { destination ->
                         NavigationBarItem(
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = Color.Transparent,
+                            ),
                             selected = currentRoute == destination.route,
                             onClick = {
                                 navController.navigate(destination.route) {
@@ -168,10 +176,22 @@ private fun MainNavigation(
                 DetailScreen(
                     viewModel = vm,
                     onBack = navController::navigateUp,
+                    onReadHtml = { navController.navigate("html/${Uri.encode(paperId)}") },
                     onReadPdf = {
                         navController.navigate("pdf/${Uri.encode(paperId)}")
                     },
                 )
+            }
+            composable(
+                route = "html/{paperId}",
+                arguments = listOf(navArgument("paperId") { type = NavType.StringType }),
+            ) { entry ->
+                val paperId = entry.arguments?.getString("paperId").orEmpty()
+                val vm: DetailViewModel = viewModel(key = "html-$paperId", factory = ViewModelFactories.detail(paperId, container))
+                val state by vm.state.collectAsStateWithLifecycle()
+                HtmlScreen(state.paper, navController::navigateUp) {
+                    navController.navigate("pdf/${Uri.encode(paperId)}")
+                }
             }
             composable(
                 route = "pdf/{paperId}",

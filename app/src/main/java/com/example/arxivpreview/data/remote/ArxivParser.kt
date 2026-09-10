@@ -1,6 +1,7 @@
 package com.example.arxivpreview.data.remote
 
 import android.util.Xml
+import com.example.arxivpreview.model.ArxivIds
 import com.example.arxivpreview.model.Paper
 import com.example.arxivpreview.model.PaperPage
 import java.io.InputStream
@@ -72,7 +73,7 @@ class ArxivParser {
                 }
             }
         }
-        val versionedId = rawId.substringAfterLast("/").ifBlank { rawId }
+        val versionedId = ArxivIds.versioned(rawId).ifBlank { rawId }
         val id = normalizeId(versionedId)
         return Paper(
             id = id,
@@ -97,7 +98,7 @@ class ArxivParser {
         private val WHITESPACE = Regex("\\s+")
 
         fun normalizeId(value: String): String =
-            value.substringAfterLast("/").replace(VERSION_SUFFIX, "")
+            ArxivIds.normalize(value)
 
         fun normalizeWhitespace(value: String): String = value.trim().replace(WHITESPACE, " ")
 

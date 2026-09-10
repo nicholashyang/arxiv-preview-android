@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -11,8 +12,16 @@ import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore by preferencesDataStore("settings")
 
+enum class ThemeMode(val label: String) {
+    SYSTEM("System"), LIGHT("Light"), DARK("Dark");
+    companion object {
+        fun fromStored(value: String?): ThemeMode = entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
 data class AppPreferences(
     val onboardingComplete: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val categories: Set<String> = emptySet(),
     val notificationsEnabled: Boolean = false,
     val lastPublishedAt: Long = 0L,
@@ -23,6 +32,7 @@ class PreferencesRepository(private val context: Context) {
     val preferences: Flow<AppPreferences> = context.settingsDataStore.data.map { values ->
         AppPreferences(
             onboardingComplete = values[ONBOARDING_COMPLETE] ?: false,
+            themeMode = ThemeMode.fromStored(values[THEME_MODE]),
             categories = values[CATEGORIES].orEmpty(),
             notificationsEnabled = values[NOTIFICATIONS_ENABLED] ?: false,
             lastPublishedAt = values[LAST_PUBLISHED_AT] ?: 0L,
@@ -55,7 +65,12 @@ class PreferencesRepository(private val context: Context) {
         context.settingsDataStore.edit { it[AUTOMATIC_APP_UPDATES] = enabled }
     }
 
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.settingsDataStore.edit { it[THEME_MODE] = mode.name }
+    }
+
     private companion object {
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val CATEGORIES = stringSetPreferencesKey("categories")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")

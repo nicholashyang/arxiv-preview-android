@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.arxivpreview"
         minSdk = 31
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -45,6 +45,8 @@ android {
         compose = true
         buildConfig = true
     }
+
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
     packaging {
         resources.excludes += setOf(
@@ -79,6 +81,7 @@ dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.pdf.viewer)
+    implementation("androidx.fragment:fragment-compose:1.8.9")
 
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.scalars)
