@@ -25,6 +25,7 @@ enum class SwipeAction(val label: String) {
 }
 
 data class AppPreferences(
+    val onlineRecommendations: Boolean = true,
     val swipeLeft: SwipeAction = SwipeAction.MORE,
     val swipeRight: SwipeAction = SwipeAction.FAVORITE,
     val readerMobile: Boolean = true,
@@ -40,6 +41,7 @@ data class AppPreferences(
 class PreferencesRepository(private val context: Context) {
     val preferences: Flow<AppPreferences> = context.settingsDataStore.data.map { values ->
         AppPreferences(
+            onlineRecommendations = values[ONLINE_RECOMMENDATIONS] ?: true,
             swipeLeft = SwipeAction.stored(values[SWIPE_LEFT], SwipeAction.MORE),
             swipeRight = SwipeAction.stored(values[SWIPE_RIGHT], SwipeAction.FAVORITE),
             readerMobile = values[READER_MOBILE] ?: true,
@@ -84,7 +86,9 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setReader(mobile: Boolean, font: Int, line: Float) {
         context.settingsDataStore.edit { it[READER_MOBILE] = mobile; it[READER_FONT] = font.toString(); it[READER_LINE] = line.toString() }
     }
+    suspend fun setOnlineRecommendations(enabled: Boolean) { context.settingsDataStore.edit { it[ONLINE_RECOMMENDATIONS] = enabled } }
     private companion object {
+        val ONLINE_RECOMMENDATIONS = booleanPreferencesKey("online_recommendations")
         val SWIPE_LEFT = stringPreferencesKey("swipe_left")
         val SWIPE_RIGHT = stringPreferencesKey("swipe_right")
         val READER_MOBILE = booleanPreferencesKey("reader_mobile")

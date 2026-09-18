@@ -67,73 +67,84 @@ data class LatestUiState(
     val papers: List<Paper> = emptyList(),
     val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
-    val hasMore: Boolean = true,
+    val hasMore: Boolean = false,
     val error: String? = null,
 )
 
-class LatestViewModel(private val container: AppContainer) : ViewModel() {
+class LatestViewModel(
+    category: String,
+    private val execute: suspend (com.example.arxivpreview.model.SearchCriteria, Int) -> com.example.arxivpreview.model.PaperPage,
+    private val cached: suspend (String) -> List<Paper> = { emptyList() },
+) : ViewModel() {
+    constructor(category: String, container: AppContainer) : this(
+        category, container.paperRepository::search, container.paperRepository::cachedCategoryPapers,
+    )
+
+    private val criteria = com.example.arxivpreview.model.SearchCriteria(
+        categories = setOf(category), sort = com.example.arxivpreview.model.SearchSort.SUBMITTED,
+    )
     private val mutableState = MutableStateFlow(LatestUiState())
     val state: StateFlow<LatestUiState> = mutableState
+    private var request: kotlinx.coroutines.Job? = null
+    private var generation = 0
+    private var nextStart = 0
 
     init {
-        viewModelScope.launch {
-            container.paperRepository.observeLatest().collect { papers ->
-                mutableState.update { it.copy(papers = papers) }
-            }
-        }
         refresh()
     }
 
     fun refresh() {
         if (mutableState.value.refreshing) return
-        viewModelScope.launch {
-            val categories = container.preferencesRepository.preferences.first().categories
-            if (categories.isEmpty()) return@launch
-            mutableState.update { it.copy(refreshing = true, error = null) }
-            runCatching { container.paperRepository.refreshLatest(categories) }
-                .onSuccess { page ->
-                    mutableState.update {
-                        it.copy(
-                            refreshing = false,
-                            hasMore = page.papers.size < page.totalResults,
-                        )
-                    }
+        request?.cancel()
+        val token = ++generation
+        nextStart = 0
+        mutableState.update { it.copy(refreshing = true, loadingMore = false, hasMore = false, error = null) }
+        request = viewModelScope.launch {
+            if (mutableState.value.papers.isEmpty()) {
+                try {
+                    val papers = cached(criteria.categories.single())
+                    if (token == generation) mutableState.update { it.copy(papers = papers) }
+                } catch (cancel: kotlinx.coroutines.CancellationException) {
+                    throw cancel
+                } catch (_: Exception) {
+                    // A cache failure must not prevent fetching the category from arXiv.
                 }
-                .onFailure { error ->
-                    mutableState.update {
-                        it.copy(
-                            refreshing = false,
-                            error = error.message ?: "Could not refresh papers",
-                        )
-                    }
-                }
+            }
+            fetch(0, token)
         }
     }
 
     fun loadMore() {
         val current = mutableState.value
         if (current.loadingMore || current.refreshing || !current.hasMore) return
-        viewModelScope.launch {
-            val categories = container.preferencesRepository.preferences.first().categories
-            mutableState.update { it.copy(loadingMore = true, error = null) }
-            runCatching { container.paperRepository.refreshLatest(categories, append = true) }
-                .onSuccess { page ->
-                    val totalLoaded = mutableState.value.papers.size
-                    mutableState.update {
-                        it.copy(
-                            loadingMore = false,
-                            hasMore = page.papers.isNotEmpty() && totalLoaded < page.totalResults,
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    mutableState.update {
-                        it.copy(
-                            loadingMore = false,
-                            error = error.message ?: "Could not load more papers",
-                        )
-                    }
-                }
+        mutableState.update { it.copy(loadingMore = true, error = null) }
+        val token = generation
+        request = viewModelScope.launch { fetch(nextStart, token) }
+    }
+
+    fun retry() {
+        if (nextStart == 0) refresh() else loadMore()
+    }
+
+    private suspend fun fetch(start: Int, token: Int) {
+        try {
+            val page = execute(criteria, start)
+            if (token != generation) return
+            // The API offset counts results, including duplicates across page boundaries.
+            nextStart = start + page.papers.size
+            mutableState.update {
+                it.copy(
+                    papers = ((if (start == 0) emptyList() else it.papers) + page.papers).distinctBy(Paper::id),
+                    refreshing = false, loadingMore = false,
+                    hasMore = page.papers.isNotEmpty() && nextStart < page.totalResults,
+                )
+            }
+        } catch (cancel: kotlinx.coroutines.CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            if (token == generation) mutableState.update {
+                it.copy(refreshing = false, loadingMore = false, error = error.message ?: "Could not load papers")
+            }
         }
     }
 }
@@ -288,6 +299,10 @@ class SettingsViewModel(
     fun saveCategories(categories: Set<String>) {
         if (categories.isEmpty()) return
         viewModelScope.launch {
+            val previous = container.preferencesRepository.preferences.first().categories
+            for (category in (previous - categories) + (categories - previous)) {
+                container.database.discoveryDao().deleteSync("category:$category")
+            }
             container.preferencesRepository.setCategories(categories)
             container.paperRepository.refreshLatest(categories)
             DailySyncScheduler.schedule(getApplication())
@@ -346,7 +361,7 @@ object ViewModelFactories {
     fun main(container: AppContainer) = factory { MainViewModel(container) }
     fun onboarding(container: AppContainer, app: Application) =
         factory { OnboardingViewModel(container, app) }
-    fun latest(container: AppContainer) = factory { LatestViewModel(container) }
+    fun latest(category: String, container: AppContainer) = factory { LatestViewModel(category, container) }
     fun search(container: AppContainer) = factory { SearchViewModel(container) }
     fun favorites(container: AppContainer) = factory { FavoritesViewModel(container) }
     fun detail(id: String, container: AppContainer) = factory { DetailViewModel(id, container) }

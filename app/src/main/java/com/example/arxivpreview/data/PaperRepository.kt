@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 class PaperRepository(
     private val database: ArxivDatabase,
     private val dao: ArxivDao,
-    private val remote: ArxivRemoteDataSource,
+    internal val remote: ArxivRemoteDataSource,
 ) {
     fun observeLatest(): Flow<List<Paper>> =
         dao.observeFeed().map { items -> items.map { it.toModel() } }
@@ -24,6 +24,9 @@ class PaperRepository(
         dao.observePaper(id).map { it?.toModel() }
 
     suspend fun getPaper(id: String): Paper? = dao.getPaper(id)?.toModel()
+
+    suspend fun cachedCategoryPapers(category: String): List<Paper> =
+        dao.cachedCategoryPapers(category).map { it.toModel() }
 
     suspend fun refreshLatest(categories: Set<String>, append: Boolean = false): PaperPage {
         val start = if (append) dao.feedCount() else 0
@@ -53,9 +56,10 @@ class PaperRepository(
     }
 
     suspend fun refreshPaper(id: String): Paper? {
-        val page = remote.search("id:$id", 0, 1, sortBy = "lastUpdatedDate")
-        page.papers.firstOrNull()?.let { dao.upsertPaper(it.toEntity()) }
-        return page.papers.firstOrNull()
+        val page = remote.search(null, 0, 1, idList = id)
+        val paper = page.papers.firstOrNull { it.id == com.example.arxivpreview.model.ArxivIds.normalize(id) }
+        paper?.let { dao.upsertPaper(it.toEntity()) }
+        return paper
     }
 
     suspend fun replaceLatest(papers: List<Paper>) {

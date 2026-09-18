@@ -40,6 +40,7 @@ fun SettingsScreen(
     openAbout: Boolean = false,
     onAboutOpened: () -> Unit = {},
     onAboutVisible: (Boolean) -> Unit = {},
+    onResearchPreferences: (() -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Do not measure or restore a shorter placeholder list before preferences arrive.
@@ -99,8 +100,11 @@ fun SettingsScreen(
     DisposableEffect(Unit) { onDispose { onAboutVisible(false) } }
 
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (onResearchPreferences != null) "Profile" else "Settings", style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f).padding(horizontal = 20.dp, vertical = 12.dp))
+            onResearchPreferences?.let { TextButton(onClick = it) { Text("Research") } }
+        }
         LazyColumn(state = listState, modifier = Modifier.weight(1f).testTag("settings-list"),
             contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "appearance") {

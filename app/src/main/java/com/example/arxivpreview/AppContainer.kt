@@ -25,7 +25,7 @@ class AppContainer(context: Context) {
         this.context,
         ArxivDatabase::class.java,
         "arxiv-preview.db",
-    ).addMigrations(com.example.arxivpreview.data.local.MIGRATION_1_2, com.example.arxivpreview.data.local.MIGRATION_2_3).build()
+    ).addMigrations(com.example.arxivpreview.data.local.MIGRATION_1_2, com.example.arxivpreview.data.local.MIGRATION_2_3, com.example.arxivpreview.data.local.MIGRATION_3_4).build()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -59,4 +59,13 @@ class AppContainer(context: Context) {
     val favoriteRepository = FavoriteRepository(database)
     val pdfFileDownloader = PdfFileDownloader(client)
     val pdfRepository = PdfRepository(this.context, database.dao(), pdfFileDownloader)
+    val semanticKeyStore = com.example.arxivpreview.data.discovery.SemanticKeyStore(this.context)
+    private val semanticTransport = com.example.arxivpreview.data.discovery.OkHttpSemanticTransport(
+        okhttp3.OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).callTimeout(40, TimeUnit.SECONDS).build())
+    val semanticScholar = com.example.arxivpreview.data.discovery.SemanticScholarClient(database.discoveryDao(), semanticTransport, semanticKeyStore::read)
+    val authorRepository = com.example.arxivpreview.data.discovery.AuthorRepository(database.discoveryDao(), semanticScholar, paperRepository)
+    val recommendationRepository = com.example.arxivpreview.data.discovery.RecommendationRepository(database, preferencesRepository, paperRepository, semanticScholar)
+    val inboxRepository = com.example.arxivpreview.data.discovery.InboxRepository(database.discoveryDao())
+    val discoverySync = com.example.arxivpreview.data.discovery.DiscoverySyncCoordinator(database, preferencesRepository, paperRepository, authorRepository, recommendationRepository)
+
 }

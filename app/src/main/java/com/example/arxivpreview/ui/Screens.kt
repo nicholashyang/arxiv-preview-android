@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
@@ -58,11 +57,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -127,49 +126,6 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LatestScreen(
-    viewModel: LatestViewModel,
-    contentPadding: PaddingValues,
-    onPaperClick: (Paper) -> Unit,
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    Column(Modifier.padding(contentPadding)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Latest", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "New submissions in your categories",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = viewModel::refresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-            }
-        }
-        PullToRefreshBox(
-            isRefreshing = state.refreshing,
-            onRefresh = viewModel::refresh,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            PaperList(
-                papers = state.papers,
-                loading = state.refreshing,
-                loadingMore = state.loadingMore,
-                hasMore = state.hasMore,
-                error = state.error,
-                onPaperClick = onPaperClick,
-                onLoadMore = viewModel::loadMore,
-            )
-        }
-    }
-}
-
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
@@ -178,9 +134,9 @@ fun FavoritesScreen(
 ) {
     val papers by viewModel.papers.collectAsStateWithLifecycle()
     val actions = LocalPaperActions.current
-    var query by remember { mutableStateOf("") }
-    var group by remember { mutableStateOf<Long?>(null) } // null: all, -1: ungrouped
-    var tags by remember { mutableStateOf(setOf<Long>()) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var group by rememberSaveable { mutableStateOf<Long?>(null) } // null: all, -1: ungrouped
+    var tags by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.listSaver<Set<Long>, Long>(save = { it.toList() }, restore = { it.toSet() })) { mutableStateOf(setOf<Long>()) }
     LaunchedEffect(actions.groups, actions.tags) {
         if (group != null && group != -1L && actions.groups.none { it.id == group }) group = null
         tags = tags.intersect(actions.tags.map { it.id }.toSet())
@@ -194,7 +150,7 @@ fun FavoritesScreen(
     var showTags by remember { mutableStateOf(false) }
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Favorites", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f).padding(20.dp))
+            Text("Library", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f).padding(20.dp))
             TextButton(onClick = { actions.managing = true }) { Text("Manage") }
         }
         OutlinedTextField(query, { query = it }, label = { Text("Search favorites") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
@@ -264,11 +220,7 @@ fun DetailScreen(
         ) {
             MathText(paper.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
-            Text(
-                paper.authors.joinToString(", "),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            PaperAuthors(paper)
             Spacer(Modifier.height(12.dp))
             Text(
                 "${paper.versionedId}  •  ${formatDate(paper.publishedAt)}",
@@ -332,6 +284,8 @@ fun DetailScreen(
                     Text("Download for offline reading")
                 }
             }
+            Spacer(Modifier.height(24.dp))
+            SimilarPapers(paper)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -391,7 +345,7 @@ internal fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
         Box {
-            Column(Modifier.padding(18.dp)) {
+            Column(Modifier.semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }.clickable { onPaperClick(paper) }.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(paper.primaryCategory.uppercase(), style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary)
@@ -400,16 +354,18 @@ internal fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(10.dp))
-                MathText(paper.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Box {
+                    MathText(paper.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    if (containsMath(paper.title)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
+                }
                 Spacer(Modifier.height(7.dp))
-                Text(paper.authors.take(4).joinToString(", ") + if (paper.authors.size > 4) " et al." else "",
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PaperAuthors(paper, compact = true)
                 Spacer(Modifier.height(10.dp))
-                MathText(paper.summary, maxLines = 3, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    MathText(paper.summary, maxLines = 3, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (containsMath(paper.summary)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
+                }
             }
-            Box(Modifier.matchParentSize().semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }.clickable { onPaperClick(paper) })
             Row(Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface), verticalAlignment = Alignment.CenterVertically) {
                 if (actions.records.any { it.paperId == paper.id }) Icon(Icons.Default.Bookmark, "Saved", Modifier.size(18.dp))
                 IconButton(onClick = { actions.more = paper }) { Icon(Icons.Default.MoreVert, "More actions for ${paper.id}") }

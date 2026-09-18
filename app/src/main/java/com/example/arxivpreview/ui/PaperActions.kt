@@ -81,12 +81,17 @@ internal fun PaperActionsHost(container: AppContainer, content: @Composable () -
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val actions = remember(container) { PaperActions(container, scope, snackbar) }
-    val preferences by container.preferencesRepository.preferences.collectAsStateWithLifecycle(AppPreferences())
+    val preferences by container.preferencesRepository.preferences.collectAsStateWithLifecycle(initialValue = null)
     val records by container.favoriteRepository.records.collectAsStateWithLifecycle(emptyList())
     val groups by container.favoriteRepository.groups.collectAsStateWithLifecycle(emptyList())
     val tags by container.favoriteRepository.tags.collectAsStateWithLifecycle(emptyList())
     val relations by container.favoriteRepository.relations.collectAsStateWithLifecycle(emptyList())
-    SideEffect { actions.preferences = preferences; actions.records = records; actions.groups = groups; actions.tags = tags; actions.relations = relations }
+    val loadedPreferences = preferences
+    if (loadedPreferences == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
+    SideEffect { actions.preferences = loadedPreferences; actions.records = records; actions.groups = groups; actions.tags = tags; actions.relations = relations }
     CompositionLocalProvider(LocalPaperActions provides actions) {
         Box(Modifier.fillMaxSize()) {
             content()

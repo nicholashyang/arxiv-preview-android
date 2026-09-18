@@ -70,7 +70,7 @@ class FavoriteOrganizationTest {
             sqlite.execSQL("INSERT INTO downloads VALUES ('2501.12948','2501.12948v1','/kept.pdf',42,124)")
             sqlite.version = 2
         }
-        val migrated = Room.databaseBuilder(context, ArxivDatabase::class.java, name).addMigrations(MIGRATION_2_3).build()
+        val migrated = Room.databaseBuilder(context, ArxivDatabase::class.java, name).addMigrations(MIGRATION_2_3, MIGRATION_3_4).build()
         try { runBlocking {
             assertEquals(123L, migrated.dao().favorite("2501.12948")!!.createdAt)
             assertNull(migrated.dao().favorite("2501.12948")!!.groupId)

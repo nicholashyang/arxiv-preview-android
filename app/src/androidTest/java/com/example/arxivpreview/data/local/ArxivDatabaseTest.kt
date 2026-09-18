@@ -45,6 +45,22 @@ class ArxivDatabaseTest {
         assertTrue(dao.observeFavorites().first().isEmpty())
     }
 
+    @Test
+    fun categoryCacheIncludesCrossListsWithExactCodesAndNewestFirst() = runBlocking {
+        val dao = database.dao()
+        val base = samplePaper()
+        dao.upsertPapers(listOf(
+            base.copy(id = "old", publishedAt = 1).toEntity(),
+            base.copy(id = "cross-list", primaryCategory = "stat.ML", categories = listOf("stat.ML", "cs.AI"), publishedAt = 3).toEntity(),
+            base.copy(id = "unrelated", categories = listOf("cs.LG"), publishedAt = 4).toEntity(),
+            base.copy(id = "partial-code", categories = listOf("cs.AI-extra"), publishedAt = 5).toEntity(),
+        ))
+        assertEquals(listOf("cross-list", "old"), dao.cachedCategoryPapers("cs.AI").map { it.id })
+        assertEquals(listOf("cross-list"), dao.cachedCategoryPapers("stat.ML").map { it.id })
+        assertTrue(dao.cachedCategoryPapers("hep-ph").isEmpty())
+        assertEquals(0, dao.feedCount())
+    }
+
     private fun samplePaper() = Paper(
         id = "2607.12345",
         versionedId = "2607.12345v1",

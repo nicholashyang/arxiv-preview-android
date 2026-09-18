@@ -24,6 +24,16 @@ interface ArxivDao {
 
     @Query(
         """
+        SELECT * FROM papers
+        WHERE instr(char(31) || categories || char(31), char(31) || :category || char(31)) > 0
+        ORDER BY publishedAt DESC, id DESC
+        LIMIT 50
+        """,
+    )
+    suspend fun cachedCategoryPapers(category: String): List<PaperEntity>
+
+    @Query(
+        """
         SELECT papers.* FROM papers
         INNER JOIN feed_items ON papers.id = feed_items.paperId
         ORDER BY feed_items.position ASC

@@ -27,18 +27,11 @@ class DailySyncWorker(
         val preferences = container.preferencesRepository.preferences.first()
         if (preferences.categories.isEmpty()) return Result.success()
         return try {
-            val papers = container.paperRepository.fetchDaily(preferences.categories)
-            container.paperRepository.replaceLatest(papers)
-            val newest = papers.maxOfOrNull { it.publishedAt } ?: preferences.lastPublishedAt
-            if (preferences.lastPublishedAt > 0) {
-                val count = papers.count { it.publishedAt > preferences.lastPublishedAt }
-                if (count > 0 && preferences.notificationsEnabled) notifyNewPapers(count)
-            }
-            if (newest > preferences.lastPublishedAt) {
-                container.preferencesRepository.setLastPublishedAt(newest)
-            }
-            Result.success()
-        } catch (error: Throwable) {
+            val result = container.discoverySync.refresh()
+            if (result.newCount > 0 && preferences.notificationsEnabled) notifyNewPapers(result.newCount)
+            if (result.pending && runAttemptCount < 2) Result.retry() else Result.success()
+        } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel
+        } catch (error: Exception) {
             if (runAttemptCount < 2) Result.retry() else Result.failure()
         }
     }
@@ -62,6 +55,7 @@ class DailySyncWorker(
             },
         )
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            putExtra(MainActivity.OPEN_INBOX, true)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -73,7 +67,7 @@ class DailySyncWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("$count new arXiv ${if (count == 1) "paper" else "papers"}")
-            .setContentText("New submissions are ready in your followed categories.")
+            .setContentText("Updates from your authors and topics are ready in Inbox.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

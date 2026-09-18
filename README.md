@@ -2,6 +2,18 @@
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
 
+## Version 1.4.0
+
+- Five destinations: **Home**, **Explore**, **Library**, **Inbox**, and **Profile**.
+- Home ranks recent papers using followed categories, topic phrases, confirmed author identities, and saved-paper text similarity. Recommendations explain why a paper appears, exclude saved/dismissed papers, and separate older results under **Earlier papers**. “Not interested” supports Undo and restoration in Profile.
+- Explore combines Latest, existing advanced paper search, author search, and category browsing. Latest lists all categories grouped by subject, with search by name, code, or subject. Opening a category shows its newest submissions first with refresh and pagination, independently of followed categories; cached papers remain readable if a request fails. Authors on cards and details open an identity chooser, then a Semantic Scholar profile with affiliations, publication/citation metrics, follow controls, and paginated papers. Same-name results remain separate identities.
+- Inbox collects new arXiv papers from categories, topics, and authors. Read, unread, archive, restore, unread badges, and daily summary notifications persist locally. First synchronization seeds the past seven days silently. Repeated refreshes merge reasons without resetting user state.
+- Profile retains existing settings and adds **Research** preferences for authors, topic phrases, recommendation controls, excluded papers, and an optional personal Semantic Scholar API key. Keys are encrypted with Android Keystore in storage excluded from backup.
+- Optional Semantic Scholar recommendations use up to 20 resolved saved and 20 dismissed paper IDs; no reading-duration tracking or backend account is introduced. Paper details offer **Similar papers**, with local similarity as a fallback.
+- Room schema 4 migrates existing favorites, organization, PDFs, and HTML progress. Separate source checkpoints resume paginated refreshes after interruption; failed author metadata is retained for retry.
+
+See [discovery validation and screenshots](docs/VALIDATION-discovery.md), [Latest category validation](docs/VALIDATION-latest-categories.md), and [release validation](docs/VALIDATION-1.4.0.md).
+
 ## Version 1.3.0
 
 - Configurable left/right swipe actions with favorite undo.
@@ -26,11 +38,11 @@ See [validation and screenshots](docs/VALIDATION-browsing-reading.md).
 
 ## Features
 
-- Follow any active arXiv category and browse a daily feed.
+- Follow arXiv categories, topic phrases, and identified authors; browse recommendations and a research Inbox.
 - Search titles, abstracts, authors, and arXiv IDs.
 - Save favorites locally with Room.
 - Manually download PDFs for offline reading.
-- Optional daily notifications for new submissions.
+- Optional daily summary notifications for new Inbox papers.
 - Current app version in Settings, manual update checks, and APK download/install from GitHub Releases.
 - Automatic daily app update checks, system and in-app reminders, and downloads on request.
 
@@ -117,3 +129,14 @@ is embedded in the app, so releases must be publicly accessible.
 
 arXiv API requests are serialized with a minimum three-second interval and use small pages, per
 the [arXiv API manual](https://info.arxiv.org/help/api/user-manual.html).
+
+
+## Discovery data and availability
+
+arXiv remains the source for paper metadata and reading links. Semantic Scholar supplies author identities, author statistics, and optional recommendations. An author’s statistics cover their Semantic Scholar record, while Inbox only imports works with a valid arXiv ID. Non-arXiv works in the author profile open on Semantic Scholar. Missing fields are displayed as unavailable; author updates can be delayed by indexing.
+
+Public Semantic Scholar access is attempted without an API key. Shared limits can return HTTP 429, and some endpoints may require a personal key. Configure one through **Profile → Research → Semantic Scholar access**. Each client serializes requests at roughly one request per second, retries temporary failures with bounded backoff, and preserves cached data. Author/API metadata cache lasts 24 hours; recommendation responses last six hours. Refreshing an author or validating access bypasses the corresponding cache. The app never embeds a shared credential.
+
+Each source processes up to eight pages per refresh and persists its next offset after every completed page. Large subscriptions can show “Refresh to continue”; the daily worker also performs bounded retries. Category/topic windows overlap by two days, and author queries recheck the relevant publication years with a 30-day overlap to accommodate indexing delays. Initial subscriptions receive a silent seven-day baseline. This is a client-side discovery service, not a guarantee of exhaustive real-time indexing.
+
+All interests, Inbox states, feedback, favorites, and cached metadata stay on-device. Online recommendation requests send resolved paper IDs; ordinary author search sends the entered name and author/paper lookup IDs. Disabling **Enhance recommendations** stops online recommendation requests while leaving author lookup available. Existing search, math rendering, HTML/PDF reading, offline downloads, and updates remain available.

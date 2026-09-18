@@ -14,6 +14,7 @@ import com.example.arxivpreview.ui.ArxivApp
 import com.example.arxivpreview.ui.theme.ArxivPreviewTheme
 
 class MainActivity : FragmentActivity() {
+    private var openInbox by mutableStateOf(false)
     private var openUpdates by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +28,8 @@ class MainActivity : FragmentActivity() {
                 if (preferences != null) ArxivApp(
                     application = application,
                     container = (application as ArxivApplication).container,
+                    openInbox = openInbox,
+                    onInboxOpened = { openInbox = false },
                     openUpdates = openUpdates,
                     onUpdatesOpened = { openUpdates = false },
                 )
@@ -41,6 +44,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun consumeUpdateIntent(intent: Intent) {
+        if (intent.getBooleanExtra(OPEN_INBOX, false)) { openInbox = true; intent.removeExtra(OPEN_INBOX) }
         if (intent.getBooleanExtra(OPEN_UPDATES, false)) {
             openUpdates = true
             intent.removeExtra(OPEN_UPDATES)
@@ -48,6 +52,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        const val OPEN_INBOX = "open_research_inbox"
         const val OPEN_UPDATES = "open_app_updates"
     }
 }

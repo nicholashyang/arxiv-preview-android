@@ -6,18 +6,21 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [
+        AuthorEntity::class, PaperAuthorEntity::class, FollowedAuthorEntity::class, KeywordEntity::class,
+        FeedbackEntity::class, CandidateEntity::class, InboxEntity::class, SyncSourceEntity::class, SemanticCacheEntity::class, PendingAuthorPaperEntity::class,
         PaperEntity::class,
         FeedItemEntity::class,
         FavoriteEntity::class,
         DownloadEntity::class,
         FavoriteGroupEntity::class, TagEntity::class, FavoriteTagEntity::class, HtmlProgressEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class ArxivDatabase : RoomDatabase() {
     abstract fun dao(): ArxivDao
+    abstract fun discoveryDao(): DiscoveryDao
 }
 
 /** Repair legacy IDs atomically, carrying every user-owned relation to the canonical key. */
@@ -61,5 +64,22 @@ val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
         db.execSQL("CREATE TABLE IF NOT EXISTS favorite_tags (paperId TEXT NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY(paperId, tagId), FOREIGN KEY(paperId) REFERENCES favorites(paperId) ON DELETE CASCADE, FOREIGN KEY(tagId) REFERENCES tags(id) ON DELETE CASCADE)")
         db.execSQL("CREATE INDEX IF NOT EXISTS index_favorite_tags_tagId ON favorite_tags (tagId)")
         db.execSQL("CREATE TABLE IF NOT EXISTS html_progress (versionedId TEXT NOT NULL PRIMARY KEY, anchor TEXT NOT NULL, offset REAL NOT NULL, ratio REAL NOT NULL)")
+    }
+}
+
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        listOf(
+            "CREATE TABLE IF NOT EXISTS authors (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, affiliations TEXT NOT NULL, paperCount INTEGER, citationCount INTEGER, hIndex INTEGER, updatedAt INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS paper_authors (paperId TEXT NOT NULL, authorId TEXT NOT NULL, PRIMARY KEY(paperId, authorId))",
+            "CREATE TABLE IF NOT EXISTS followed_authors (authorId TEXT NOT NULL PRIMARY KEY, followedAt INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS keywords (text TEXT NOT NULL PRIMARY KEY, createdAt INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS recommendation_feedback (paperId TEXT NOT NULL PRIMARY KEY, createdAt INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS discovery_candidates (paperId TEXT NOT NULL, source TEXT NOT NULL, discoveredAt INTEGER NOT NULL, PRIMARY KEY(paperId, source))",
+            "CREATE TABLE IF NOT EXISTS inbox (paperId TEXT NOT NULL PRIMARY KEY, reasons TEXT NOT NULL, receivedAt INTEGER NOT NULL, isRead INTEGER NOT NULL, archived INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS discovery_sync (id TEXT NOT NULL PRIMARY KEY, windowStart INTEGER NOT NULL, windowEnd INTEGER NOT NULL, nextStart INTEGER NOT NULL, initialized INTEGER NOT NULL, completedAt INTEGER NOT NULL, error TEXT)",
+            "CREATE TABLE IF NOT EXISTS semantic_cache (`key` TEXT NOT NULL PRIMARY KEY, payload TEXT NOT NULL, fetchedAt INTEGER NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS pending_author_papers (paperId TEXT NOT NULL, authorId TEXT NOT NULL, since INTEGER NOT NULL, silent INTEGER NOT NULL, PRIMARY KEY(paperId, authorId))"
+        ).forEach(db::execSQL)
     }
 }
