@@ -40,11 +40,11 @@ class UpdateReminderTest {
         var asset = System.currentTimeMillis()
         var status = 200
         val client = OkHttpClient.Builder().addInterceptor { chain ->
-            val apk = JSONObject().put("id", asset).put("name", "arxiv-preview-v99.0.0.apk")
+            val apk = JSONObject().put("id", asset).put("name", "arxiv-preview-v20990101000000.apk")
                 .put("state", "uploaded").put("size", 100)
                 .put("digest", "sha256:" + "a".repeat(64))
-                .put("browser_download_url", "https://github.com/${AppRelease.REPOSITORY}/releases/download/v99.0.0/arxiv-preview-v99.0.0.apk")
-            val json = JSONObject().put("tag_name", "v99.0.0").put("assets", JSONArray().put(apk))
+                .put("browser_download_url", "https://github.com/${AppRelease.REPOSITORY}/releases/download/v20990101000000/arxiv-preview-v20990101000000.apk")
+            val json = JSONObject().put("tag_name", "v20990101000000").put("assets", JSONArray().put(apk))
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(status)
                 .message("Fixture").body(json.toString().toResponseBody()).build()
         }.build()

@@ -2,6 +2,16 @@
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
 
+## 2026-10-23
+
+- Releases are identified by date and use the fixed APK filename `arxiv-preview-universal.apk`. About shows the build date, and update notices omit version numbers.
+- Compact windows use bottom navigation; wider windows use a navigation rail. HTML and PDF keep the full available reading area.
+- Paper lists in Explore, category Latest, Library, Inbox, and author pages show a detail pane when space permits. Selection, list filters, and scroll position survive folding, resizing, and activity recreation. Back first closes the selected detail.
+- Jetpack WindowManager observes separating folds and occluding hinges. Book posture places panes on opposite sides of the hinge; tabletop posture uses top and bottom panes when both fit. Smaller windows and single-pane screens use the larger unobstructed region.
+- Home, onboarding, settings, and standalone details have a bounded content width on large displays.
+
+See [foldable validation](docs/VALIDATION-foldables.md).
+
 ## Version 1.5.0
 
 - Home displays category cards selected in **Setting → Content preferences → Followed categories**. Each card opens the category’s latest papers and shows the unread count for synced, unarchived papers in its upper-right corner. Opening a paper updates the persisted read state across the app.
@@ -51,7 +61,7 @@ See [validation and screenshots](docs/VALIDATION-browsing-reading.md).
 - Save favorites locally with Room.
 - Manually download PDFs for offline reading.
 - Optional daily summary notifications for new Inbox papers.
-- Current app version in Settings, manual update checks, and APK download/install from GitHub Releases.
+- Build date in Setting, manual update checks, and APK download/install from GitHub Releases.
 - Automatic daily app update checks, system and in-app reminders, and downloads on request.
 
 The interface is English. Paper metadata is shown as published by arXiv. This is an independent reader; third-party assets and their sources are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
@@ -98,7 +108,7 @@ on one page. Content preferences groups followed categories by subject, with exp
 search, selected counts, and an explicit Save button. App permissions shows notification and
 unknown-app installation access and opens the corresponding Android settings.
 
-About arXiv displays the installed `BuildConfig.VERSION_NAME` and `VERSION_CODE`.
+About arXiv displays the build date. Release titles, update prompts, and APK filenames no longer use version numbers; Android retains an internal increasing installation code.
 **Check for updates** reads the latest stable release from
 [`nicholashyang/arxiv-preview-android`](https://github.com/nicholashyang/arxiv-preview-android/releases).
 Choose **Download**, then **Install**. Android may first ask you to allow installs from this app;
@@ -117,18 +127,11 @@ Android requires confirmation to install an APK; this is not silent installation
 
 Publishing compatible updates:
 
-1. Increase both `versionCode` and the numeric `versionName` in `app/build.gradle.kts`.
-2. Tag a stable GitHub release `v<versionName>` (for example, `v1.1.0`). Numeric versions are
-   compared by component, so `1.10.0` is newer than `1.9.0`, and `1.0` equals `1.0.0`.
-3. Upload a signed universal APK named `arxiv-preview-v<versionName>.apk` or
-   `arxiv-preview-v<versionName>-universal.apk`. A single `arxiv-preview-*.apk` is also supported,
-   including the existing `-preview.apk` naming. Unsigned and ambiguous sets of APKs are rejected.
-4. Use the same signing certificate as the installed app. The first public preview was debug-signed;
-   an update to that preview must use that same debug key. A new signing key cannot replace it. The v1.2.0 release must keep the same certificate.
-5. Publish the release with its uploaded asset and GitHub-generated SHA-256 digest. Drafts and
-   prereleases are ignored. APK size, digest, package name, version code/name, Android minimum
-   version, and signing certificate are checked before offering installation. The digest and APK
-   metadata are checked again immediately before handing the file to the system installer.
+1. Increase the internal Android `versionCode` and set `versionName` to a calendar build ID in `yyyyMMddHHmmss` form using Asia/Shanghai release time. The app displays only its date; the compact identifier preserves update compatibility with older installations and distinguishes builds published on the same day.
+2. Use that calendar build ID as the stable GitHub release tag, and use a date-based release title such as **arXiV · 2026-10-23**. Legacy numeric release tags remain readable by the updater.
+3. Upload the signed universal APK with the fixed filename `arxiv-preview-universal.apk`. Include only one compatible APK in the release.
+4. Keep the existing signing certificate so installed copies can upgrade. The historical Android Debug certificate is retained for compatibility; release builds remain optimized and non-debuggable.
+5. Publish with the GitHub-generated SHA-256 digest. Drafts and prereleases are ignored. APK size, digest, package name, calendar build ID, internal installation code, Android minimum, and signing certificate are validated before installation.
 
 Failed checks retain the previous available release and display an error. Failed or interrupted
 downloads never expose a partial APK to the installer. Metadata and completed downloads survive

@@ -110,6 +110,14 @@ class DiscoveryNavigationTest {
             compose.waitUntil(5000) { !runBlocking { container.database.discoveryDao().inbox(id)!!.archived } }
             assertFalse(runBlocking { container.database.discoveryDao().inbox(id)!!.archived })
             assertTrue(runBlocking { container.database.discoveryDao().inbox(id)!!.isRead })
+            compose.onNodeWithText("All", substring = false).performClick()
+            compose.onNodeWithText("Correlations in proton structure").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isNotEmpty() }
+            context.startActivity(Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.OPEN_INBOX, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithText("Read all").assertIsDisplayed()
         }
     }
 }

@@ -39,7 +39,7 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
             }
             if (release != null) {
                 val ready = repository.state.first().readyToInstall
-                if (repository.shouldNotify(release, ready) && notifyUpdate(release.version, ready)) {
+                if (repository.shouldNotify(release, ready) && notifyUpdate(ready)) {
                     repository.markNotified(release, ready)
                 }
             }
@@ -53,7 +53,7 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    private fun notifyUpdate(version: String, ready: Boolean): Boolean {
+    private fun notifyUpdate(ready: Boolean): Boolean {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 applicationContext, Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
@@ -75,7 +75,7 @@ class AppUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWor
         )
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(if (ready) "arXiV $version is ready" else "arXiV $version is available")
+            .setContentTitle(if (ready) "An arXiV update is ready" else "An arXiV update is available")
             .setContentText(if (ready) "Tap to review and install the downloaded update." else "Tap to review and download the update.")
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

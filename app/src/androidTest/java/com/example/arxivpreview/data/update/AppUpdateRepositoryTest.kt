@@ -38,7 +38,7 @@ class AppUpdateRepositoryTest {
     private val store = PreferenceDataStoreFactory.create(scope = scope) { File(directory, "test.preferences_pb") }
     private val bytes = "This is not an APK".toByteArray()
     private var code = 200
-    private var version = "99.0.0"
+    private var version = "20990101000000"
     private var assetId = 42L
     private val requests = mutableListOf<String>()
     private val client = OkHttpClient.Builder().addInterceptor { chain ->
@@ -58,7 +58,7 @@ class AppUpdateRepositoryTest {
         val repository = repository()
         assertTrue(repository.checkForUpdate() is UpdateResult.Available)
         val state = repository.state.first()
-        assertEquals("99.0.0", state.release?.version)
+        assertEquals("20990101000000", state.release?.version)
         assertTrue(state.lastCheckedAt > 0)
         assertFalse(state.readyToInstall)
         assertEquals(UpdatePhase.IDLE, state.phase)
@@ -148,7 +148,7 @@ class AppUpdateRepositoryTest {
             repository.markNotified(release, ready = false)
         }
         dismissCurrent()
-        version = "99.1.0"
+        version = "20990102000000"
         val newer = (repository.checkForUpdate() as UpdateResult.Available).release
         assertFalse(repository.state.first().promptDismissed)
         assertTrue(repository.shouldNotify(newer, ready = false))

@@ -74,8 +74,8 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
         }
     }
     ListItem(
-        headlineContent = { Text("Current version") },
-        supportingContent = { Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") },
+        headlineContent = { Text("Build date") },
+        supportingContent = { Text(com.example.arxivpreview.data.update.releaseBuildDate(BuildConfig.VERSION_NAME) ?: "Installed") },
     )
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Updates are checked automatically every day. Download when you’re ready.", style = MaterialTheme.typography.bodySmall)
@@ -86,11 +86,11 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
                 UpdatePhase.VERIFYING -> "Verifying update…"
                 UpdatePhase.IDLE -> when {
                     state.updateQueued -> "Update queued. Waiting for a network connection or another update task…"
-                    update.readyToInstall -> "Version ${release?.version} is ready to install"
-                    release != null -> "Version ${release.version} is available"
+                    update.readyToInstall -> "An update is ready to install"
+                    release != null -> "An update is available"
                     update.error != null -> "Could not complete the update. Please try again."
                     update.lastCheckedAt > 0 -> "You’re up to date"
-                    else -> "Check for a newer version of arXiV"
+                    else -> "Check for an arXiV update"
                 }
             },
             style = MaterialTheme.typography.bodyLarge,
@@ -140,7 +140,7 @@ fun AppUpdateSettings(state: SettingsUiState, viewModel: SettingsViewModel) {
     if (showNotes && release != null) {
         AlertDialog(
             onDismissRequest = { showNotes = false },
-            title = { Text("Version ${release.version}") },
+            title = { Text("Release notes") },
             text = { Text(release.notes, Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) },
             confirmButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },
         )

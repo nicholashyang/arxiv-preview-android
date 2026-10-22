@@ -16,6 +16,7 @@
         android:theme="@style/Theme.ArxivPreview">
         <activity
             android:name=".MainActivity"
+            android:resizeableActivity="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -91,6 +91,24 @@ class AppReleaseTest {
         assertNotNull(AppRelease.parseGithub(JSONObject(release().toString()).toString(), "1.0.0"))
     }
 
+    @Test fun calendarBuildsUseFixedApkNamesAndAllowSameDayUpdates() {
+        val build = "20261023044353"
+        val name = "arxiv-preview-universal.apk"
+        val json = release().put("tag_name", build).put("assets", JSONArray().put(asset(name)
+            .put("browser_download_url", "https://github.com/${AppRelease.REPOSITORY}/releases/download/$build/$name")))
+        assertEquals(build, AppRelease.parseGithub(json.toString(), "1.5.0")!!.version)
+        assertNotNull(AppRelease.parseGithub(json.toString(), "20261023040000"))
+        assertNull(AppRelease.parseGithub(json.toString(), build))
+        assertNull(AppRelease.parseGithub(json.toString(), "20261024000000"))
+    }
+
+    @Test fun buildDateFormattingRejectsInvalidDatesAndHidesLegacyIdentifiers() {
+        assertEquals("2026-10-23", releaseBuildDate("20261023044353"))
+        assertNull(releaseBuildDate("20260230000000"))
+        assertNull(releaseBuildDate("20261023250000"))
+        assertNull(releaseBuildDate("1.5.0"))
+    }
+
     private fun assertInvalidAsset(key: String, value: Any) {
         val json = release()
         json.getJSONArray("assets").getJSONObject(0).put(key, value)

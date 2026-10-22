@@ -1,10 +1,13 @@
 package com.example.arxivpreview.data.update
 
 import java.io.IOException
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.ResolverStyle
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONObject
 
-/** Numeric release versions: 1, 1.0 and v1.0.0 denote the same version. */
+/** Ordered calendar build IDs, with legacy numeric versions retained for upgrades. */
 data class ReleaseVersion(val major: Long, val minor: Long, val patch: Long) : Comparable<ReleaseVersion> {
     override fun compareTo(other: ReleaseVersion): Int =
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch })
@@ -19,6 +22,15 @@ data class ReleaseVersion(val major: Long, val minor: Long, val patch: Long) : C
             return ReleaseVersion(parts[0], parts[1], parts[2])
         }
     }
+}
+
+/** Public build date; internal identifiers and Android version codes stay hidden. */
+fun releaseBuildDate(buildId: String): String? {
+    if (!Regex("\\d{14}").matches(buildId)) return null
+    return runCatching {
+        LocalDateTime.parse(buildId, DateTimeFormatter.ofPattern("uuuuMMddHHmmss")
+            .withResolverStyle(ResolverStyle.STRICT)).toLocalDate().toString()
+    }.getOrNull()
 }
 
 data class AppRelease(

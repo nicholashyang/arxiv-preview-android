@@ -25,6 +25,8 @@ class SettingsNavigationTest {
                 runCatching { compose.onNodeWithText("Check for updates").assertIsDisplayed(); true }.getOrDefault(false)
             }
             compose.onNodeWithText("Automatic app updates").assertDoesNotExist()
+            compose.onNodeWithText("Build date").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("${com.example.arxivpreview.BuildConfig.VERSION_NAME} (${com.example.arxivpreview.BuildConfig.VERSION_CODE})").assertDoesNotExist()
             compose.onNodeWithTag("settings-list").performScrollToIndex(0)
             compose.onNodeWithText("APPEARANCE").assertIsDisplayed()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Install unknown apps"))
