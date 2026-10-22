@@ -13,8 +13,8 @@ import java.io.IOException
 import java.security.MessageDigest
 
 class SemanticHttpException(val status: Int, val retryAfter: Long? = null) : IOException(
-    when (status) { 401, 403 -> "Semantic Scholar access restricted. Check your API key in Profile."
-        429 -> "Semantic Scholar is busy. Try later or configure your API key in Profile."
+    when (status) { 401, 403 -> "Semantic Scholar access restricted. Check your API key in Setting."
+        429 -> "Semantic Scholar is busy. Try later or configure your API key in Setting."
         404 -> "Not indexed by Semantic Scholar yet."
         else -> "Semantic Scholar request failed ($status)." })
 

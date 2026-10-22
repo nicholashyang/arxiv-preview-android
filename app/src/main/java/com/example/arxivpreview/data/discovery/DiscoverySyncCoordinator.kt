@@ -105,7 +105,7 @@ class DiscoverySyncCoordinator(private val db: ArxivDatabase, private val prefer
             val message = errors.firstOrNull() ?: if (unfinished) "More updates are available. Refresh to continue." else null
             state.value = State(false, message)
             Result(inserted.size, unfinished || errors.isNotEmpty(), errors)
-        } finally { state.update { it.copy(running = false) } }
+        } finally { state.update { if (it.running) State() else it } }
     }
     /** Insert once, then only merge reasons. Read/archive flags belong to the user. */
     internal suspend fun ingest(paper: Paper, source: String, reason: String, silent: Boolean): Boolean = db.withTransaction {
@@ -132,6 +132,12 @@ class InboxRepository(private val dao: DiscoveryDao) {
     val items: Flow<List<InboxItem>> = combine(dao.observeInbox(), dao.observeInboxPapers()) { records, papers ->
         val byId = papers.associateBy { it.id }
         records.mapNotNull { r -> byId[r.paperId]?.let { InboxItem(it.toModel(), r.reasons, r.receivedAt, r.isRead, r.archived) } }
+    }
+    val unreadByCategory: Flow<Map<String, Int>> = items.map { inbox ->
+        inbox.asSequence()
+            .filter { !it.isRead && !it.archived }
+            .flatMap { it.paper.categories.distinct().asSequence() }
+            .groupingBy { it }.eachCount()
     }
     suspend fun read(id: String, read: Boolean = true) = dao.read(id, read)
     suspend fun archive(id: String, archived: Boolean) = dao.archive(id, archived)

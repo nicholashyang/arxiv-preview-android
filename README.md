@@ -2,6 +2,14 @@
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
 
+## Version 1.5.0
+
+- Home displays category cards selected in **Setting → Content preferences → Followed categories**. Each card opens the category’s latest papers and shows the unread count for synced, unarchived papers in its upper-right corner. Opening a paper updates the persisted read state across the app.
+- **Profile** is renamed **Setting**, with a settings icon and updated navigation hints.
+- Category changes trigger discovery synchronization. Category cards adapt to large text sizes.
+
+See [1.5.0 release validation](docs/VALIDATION-1.5.0.md).
+
 ## Version 1.4.0
 
 - Five destinations: **Home**, **Explore**, **Library**, **Inbox**, and **Profile**.
@@ -85,7 +93,7 @@ DataStore. WorkManager runs durable PDF downloads and the approximate 09:00 dail
 
 ## App updates
 
-Settings groups Appearance, Notifications, App permissions, Content preferences, and About arXiv
+Setting groups Appearance, Notifications, App permissions, Content preferences, and About arXiv
 on one page. Content preferences groups followed categories by subject, with expandable lists,
 search, selected counts, and an explicit Save button. App permissions shows notification and
 unknown-app installation access and opens the corresponding Android settings.
@@ -101,7 +109,7 @@ Cancelling installation leaves the download available for another attempt.
 Automatic checks are always enabled, including for users who disabled the former automatic
 update switch. Unique daily WorkManager work checks whenever a network is available; timing is
 approximate because Android schedules the work. Checks never download an APK. A new-release
-notification and an in-app prompt open Settings at About arXiv. Each reminder is remembered per
+notification and an in-app prompt open Setting at About arXiv. Each reminder is remembered per
 release and APK, so dismissing the prompt does not repeatedly interrupt reading. The available
 update remains in About arXiv. System notification access and the daily-paper notification
 preference do not affect checks or in-app prompts. Manual downloads also notify when ready.
@@ -135,7 +143,7 @@ the [arXiv API manual](https://info.arxiv.org/help/api/user-manual.html).
 
 arXiv remains the source for paper metadata and reading links. Semantic Scholar supplies author identities, author statistics, and optional recommendations. An author’s statistics cover their Semantic Scholar record, while Inbox only imports works with a valid arXiv ID. Non-arXiv works in the author profile open on Semantic Scholar. Missing fields are displayed as unavailable; author updates can be delayed by indexing.
 
-Public Semantic Scholar access is attempted without an API key. Shared limits can return HTTP 429, and some endpoints may require a personal key. Configure one through **Profile → Research → Semantic Scholar access**. Each client serializes requests at roughly one request per second, retries temporary failures with bounded backoff, and preserves cached data. Author/API metadata cache lasts 24 hours; recommendation responses last six hours. Refreshing an author or validating access bypasses the corresponding cache. The app never embeds a shared credential.
+Public Semantic Scholar access is attempted without an API key. Shared limits can return HTTP 429, and some endpoints may require a personal key. Configure one through **Setting → Research → Semantic Scholar access**. Each client serializes requests at roughly one request per second, retries temporary failures with bounded backoff, and preserves cached data. Author/API metadata cache lasts 24 hours; recommendation responses last six hours. Refreshing an author or validating access bypasses the corresponding cache. The app never embeds a shared credential.
 
 Each source processes up to eight pages per refresh and persists its next offset after every completed page. Large subscriptions can show “Refresh to continue”; the daily worker also performs bounded retries. Category/topic windows overlap by two days, and author queries recheck the relevant publication years with a 30-day overlap to accommodate indexing delays. Initial subscriptions receive a silent seven-day baseline. This is a client-side discovery service, not a guarantee of exhaustive real-time indexing.
 

@@ -13,7 +13,13 @@ internal fun <T : ViewModel> discoveryFactory(create: () -> T): ViewModelProvide
     @Suppress("UNCHECKED_CAST") override fun <VM : ViewModel> create(modelClass: Class<VM>): VM = create() as VM
 }
 
+data class HomeCategoryUiState(val category: ArxivCategory, val unreadCount: Int)
+
 class DiscoveryViewModel(val container: AppContainer) : ViewModel() {
+    val homeCategories = combine(container.preferencesRepository.preferences, container.inboxRepository.unreadByCategory) { preferences, unread ->
+        ArxivCategories.all.filter { it.code in preferences.categories }
+            .map { HomeCategoryUiState(it, unread[it.code] ?: 0) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val recommendations = container.recommendationRepository.recommendations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val inbox = container.inboxRepository.items.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val sync = container.discoverySync.state

@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -60,7 +59,7 @@ private val destinations = listOf(
     Destination("explore", "Explore", Icons.Default.Search),
     Destination("favorites", "Library", Icons.Default.Bookmark),
     Destination("inbox", "Inbox", Icons.Default.Inbox),
-    Destination("settings", "Profile", Icons.Default.Person),
+    Destination("settings", "Setting", Icons.Default.Settings),
 )
 
 @Composable
@@ -180,7 +179,11 @@ private fun MainNavigation(
             startDestination = "home",
             modifier = Modifier.fillMaxSize(),
         ) {
-            composable("home") { HomeScreen(discovery, padding, { navController.navigate("research-preferences") }, navigatePaper) }
+            composable("home") {
+                HomeScreen(discovery, padding, { navController.navigate("settings") }) { category ->
+                    navController.navigate("latest/${Uri.encode(category.code)}")
+                }
+            }
             composable("explore") {
                 ExploreScreen(container, padding, navigatePaper, navigateAuthor) { category ->
                     navController.navigate("latest/${Uri.encode(category.code)}")

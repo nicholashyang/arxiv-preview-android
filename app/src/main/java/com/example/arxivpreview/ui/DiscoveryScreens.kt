@@ -58,59 +58,6 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
 }
 @Composable private fun StatusText(message: String?) { if (!message.isNullOrBlank()) Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
 
-@Composable fun HomeScreen(vm: DiscoveryViewModel, padding: PaddingValues, interests: () -> Unit, onPaper: (Paper) -> Unit) {
-    val live by vm.recommendations.collectAsStateWithLifecycle()
-    val sync by vm.sync.collectAsStateWithLifecycle()
-    val sources by vm.sources.collectAsStateWithLifecycle()
-    val warning by vm.onlineWarning.collectAsStateWithLifecycle()
-    val error by vm.error.collectAsStateWithLifecycle()
-    val actions = LocalPaperActions.current
-    val scope = rememberCoroutineScope()
-    val scroll = rememberLazyListState()
-    // Preserve relative order while browsing; a completed refresh or returning to the top adopts the new ranking.
-    var orderedIds by remember { mutableStateOf<List<String>>(emptyList()) }
-    val atTop by remember { derivedStateOf { scroll.firstVisibleItemIndex == 0 } }
-    LaunchedEffect(live, sync.running, atTop) {
-        if (orderedIds.isEmpty() || (!sync.running && atTop)) orderedIds = live.map { it.paper.id }
-    }
-    val items = live.sortedBy { orderedIds.indexOf(it.paper.id).takeIf { n -> n >= 0 } ?: Int.MAX_VALUE }
-    LaunchedEffect(Unit) { vm.refreshIfStale() }
-    Column(Modifier.padding(padding).fillMaxSize()) {
-        DiscoveryHeader("Home", sync.running, vm::refresh) { TextButton(onClick = interests) { Text("Interests") } }
-        LazyColumn(state = scroll, modifier = Modifier.weight(1f)) {
-            item {
-                Text("For You", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge)
-                StatusText("New research from the last 7 days · ${discoveryDate(sources.maxOfOrNull { it.completedAt } ?: 0)}")
-                StatusText(error ?: sync.message ?: warning)
-                if (items.isEmpty()) {
-                    Text("Your research starts here", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium)
-                    Text("Follow categories, add a topic or save papers to shape your recommendations.", Modifier.padding(horizontal = 20.dp))
-                    TextButton(onClick = interests, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Manage interests") }
-                }
-            }
-            for (earlier in listOf(false, true)) {
-                val section = items.filter { it.earlier == earlier }.let { if (earlier) it.take((20 - items.count { p -> !p.earlier }).coerceAtLeast(0)) else it }
-                if (earlier && section.isNotEmpty()) item { Text("Earlier papers", Modifier.padding(20.dp), style = MaterialTheme.typography.titleLarge) }
-                items(section, key = { it.paper.id }) { item ->
-                    Column {
-                        Text(item.reasons.joinToString(" · "), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                        SwipePaperCard(item.paper, onPaper)
-                        TextButton(onClick = {
-                            scope.launch {
-                                vm.container.recommendationRepository.dismiss(item.paper.id)
-                                actions.snackbar.currentSnackbarData?.dismiss()
-                                if (actions.snackbar.showSnackbar("Removed from recommendations", "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed)
-                                    vm.container.recommendationRepository.restore(item.paper.id)
-                            }
-                        }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Not interested") }
-                    }
-                }
-            }
-            item { Spacer(Modifier.height(20.dp)) }
-        }
-    }
-}
-
 @Composable fun InboxScreen(vm: DiscoveryViewModel, padding: PaddingValues, onPaper: (Paper) -> Unit) {
     val all by vm.inbox.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
@@ -125,7 +72,7 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
         }
         LazyColumn {
             item { StatusText(sync.message ?: "${discoveryDate(sources.maxOfOrNull { it.completedAt } ?: 0)} · Author updates may arrive after indexing.") }
-            if (filtered.isEmpty()) item { Text("No ${filter.lowercase()} updates. Follow authors and topics in Profile, then refresh.", Modifier.padding(20.dp)) }
+            if (filtered.isEmpty()) item { Text("No ${filter.lowercase()} updates. Follow authors and topics in Setting, then refresh.", Modifier.padding(20.dp)) }
             items(filtered, key = { it.paper.id }) { item ->
                 Text((if (!item.isRead) "● " else "") + item.reasons.joinToString(" · "), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.labelMedium)
                 SwipePaperCard(item.paper) { paper -> vm.run { vm.container.inboxRepository.read(paper.id); onPaper(paper) } }
@@ -275,7 +222,7 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
             items(keywords, key = { "keyword:${it.text}" }) { k -> Row(verticalAlignment = Alignment.CenterVertically) { Text(k.text, Modifier.weight(1f)); TextButton(onClick = { vm.removeKeyword(k.text) }) { Text("Remove") } } }
             item {
                 Text("Followed categories: ${prefs.categories.sorted().joinToString(", ")}")
-                Text("Manage categories under Profile → Content preferences.", style = MaterialTheme.typography.bodySmall)
+                Text("Manage categories under Setting → Content preferences.", style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 Text("Online recommendations", style = MaterialTheme.typography.titleLarge)
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("Enhance recommendations", Modifier.weight(1f)); Switch(prefs.onlineRecommendations, { value -> vm.run { vm.container.preferencesRepository.setOnlineRecommendations(value) } }) }

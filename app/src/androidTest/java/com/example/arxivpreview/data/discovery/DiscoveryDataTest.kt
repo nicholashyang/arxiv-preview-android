@@ -21,6 +21,33 @@ class DiscoveryDataTest {
     private lateinit var db: ArxivDatabase
     @Before fun setup() { db = Room.inMemoryDatabaseBuilder(context, ArxivDatabase::class.java).build() }
     @After fun close() { db.close() }
+
+    @Test fun categoryUnreadCountsTrackCrossListingsReadArchiveAndRestore() = runBlocking {
+        val dao = db.discoveryDao()
+        val repository = InboxRepository(dao)
+        suspend fun insert(id: String, categories: List<String>, read: Boolean = false, archived: Boolean = false) {
+            db.dao().upsertPaper(PaperEntity(id, "${id}v1", "Fixture", "Abstract", listOf("Author"),
+                1, 1, categories.first(), categories, "", "", null, null))
+            dao.insertInbox(InboxEntity(id, listOf("Topic: fixture", "Category: ${categories.first()}"), 1, read, archived))
+        }
+        insert("2610.00001", listOf("cs.AI"))
+        insert("2610.00002", listOf("cs.LG", "cs.AI", "cs.AI"))
+        insert("2610.00003", listOf("cs.AIX"))
+        insert("2610.00004", listOf("cs.AI"), read = true)
+        insert("2610.00005", listOf("cs.AI"), archived = true)
+        assertEquals(mapOf("cs.AI" to 2, "cs.LG" to 1, "cs.AIX" to 1), repository.unreadByCategory.first())
+        repository.read("2610.00002")
+        assertEquals(mapOf("cs.AI" to 1, "cs.AIX" to 1), repository.unreadByCategory.first())
+        repository.read("2610.00002", false)
+        repository.archive("2610.00002", true)
+        assertEquals(mapOf("cs.AI" to 1, "cs.AIX" to 1), repository.unreadByCategory.first())
+        repository.archive("2610.00002", false)
+        dao.reasons("2610.00002", listOf("Topic: fixture", "Category: cs.AI", "Category: cs.LG"))
+        assertEquals(mapOf("cs.AI" to 2, "cs.LG" to 1, "cs.AIX" to 1), repository.unreadByCategory.first())
+        repository.readAll()
+        assertTrue(repository.unreadByCategory.first().isEmpty())
+    }
+
     @Test fun schemaThreeMigrationPreservesOrganizationReadingAndNewStatesAcrossReopen() = runBlocking {
         val name = "discovery-migration-test"
         context.deleteDatabase(name)

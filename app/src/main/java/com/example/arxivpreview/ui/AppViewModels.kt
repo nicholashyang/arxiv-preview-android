@@ -236,6 +236,7 @@ class DetailViewModel(
 
     init {
         viewModelScope.launch {
+            container.inboxRepository.read(paperId)
             if (container.paperRepository.getPaper(paperId) == null) {
                 runCatching { container.paperRepository.refreshPaper(paperId) }
             }
@@ -304,8 +305,8 @@ class SettingsViewModel(
                 container.database.discoveryDao().deleteSync("category:$category")
             }
             container.preferencesRepository.setCategories(categories)
-            container.paperRepository.refreshLatest(categories)
             DailySyncScheduler.schedule(getApplication())
+            container.discoverySync.refresh()
         }
     }
 

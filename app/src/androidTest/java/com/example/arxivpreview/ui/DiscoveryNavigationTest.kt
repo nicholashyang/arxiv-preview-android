@@ -49,8 +49,11 @@ class DiscoveryNavigationTest {
     }
     @Test fun fiveTabsAuthorIdentitySelectionAndFollowSurviveRecreation() {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
-            compose.waitUntil(10000) { runCatching { compose.onNodeWithText("For You").assertIsDisplayed(); true }.getOrDefault(false) }
+            compose.waitUntil(10000) { compose.onAllNodesWithTag("home-category-hep-ph").fetchSemanticsNodes().isNotEmpty() }
             for (route in listOf("home", "explore", "favorites", "inbox", "settings")) compose.onNodeWithTag("nav-$route").assertExists()
+            compose.onNodeWithTag("nav-inbox").performClick()
+            compose.onNodeWithText("All", substring = false).performClick()
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Alex Doe").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Alex Doe").performClick()
             compose.waitUntil(10000) { compose.onAllNodesWithText("View profile · 99123").fetchSemanticsNodes().isNotEmpty() }
             // Duplicate names require an explicit profile choice.
@@ -81,7 +84,7 @@ class DiscoveryNavigationTest {
                 font(scale)
                 runBlocking { container.preferencesRepository.setThemeMode(theme) }
                 ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
-                    compose.waitUntil(10000) { runCatching { compose.onNodeWithText("For You").assertIsDisplayed(); true }.getOrDefault(false) }
+                    compose.waitUntil(10000) { compose.onAllNodesWithTag("home-category-hep-ph").fetchSemanticsNodes().isNotEmpty() }
                     capture("home-$name")
                     compose.onNodeWithTag("nav-inbox").performClick()
                     compose.waitUntil(5000) { runCatching { compose.onNodeWithText("Read all").assertIsDisplayed(); true }.getOrDefault(false) }

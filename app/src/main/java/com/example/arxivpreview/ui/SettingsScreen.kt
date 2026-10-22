@@ -101,7 +101,7 @@ fun SettingsScreen(
 
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (onResearchPreferences != null) "Profile" else "Settings", style = MaterialTheme.typography.headlineMedium,
+            Text("Setting", style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f).padding(horizontal = 20.dp, vertical = 12.dp))
             onResearchPreferences?.let { TextButton(onClick = it) { Text("Research") } }
         }
