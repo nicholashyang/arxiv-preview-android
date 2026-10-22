@@ -1,39 +1,26 @@
 package com.example.arxivpreview.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.arxivpreview.model.ArxivCategory
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -43,51 +30,57 @@ fun HomeScreen(
     onCategoryClick: (ArxivCategory) -> Unit,
 ) {
     val categories by viewModel.homeCategories.collectAsStateWithLifecycle()
+    val inbox by viewModel.inbox.collectAsStateWithLifecycle()
+    val unread = inbox.count { !it.isRead && !it.archived }
     val sync by viewModel.sync.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshIfStale() }
-
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Home", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+        AppLargeTitle("Home", actions = {
             TextButton(onClick = onManageCategories) { Text("Manage") }
-            IconButton(onClick = viewModel::refresh, enabled = !sync.running) {
-                Icon(Icons.Default.Refresh, "Refresh Home")
-            }
-        }
+            IconButton(onClick = viewModel::refresh, enabled = !sync.running) { Icon(Icons.Default.Refresh, "Refresh Home") }
+        })
         if (sync.running) LinearProgressIndicator(Modifier.fillMaxWidth())
-        Text(
-            "Followed categories", Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            "Unread articles from your synced updates",
-            Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val message = error ?: sync.message
-        if (!message.isNullOrBlank()) Text(
-            message, Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (categories.isEmpty()) {
-            Text("Choose your followed categories in Setting → Content preferences.", Modifier.padding(20.dp))
-        }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(160.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
             modifier = Modifier.weight(1f).testTag("home-categories"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(categories, key = { it.category.code }) { item ->
-                HomeCategoryCard(item, onCategoryClick)
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(22.dp)) {
+                    Column(Modifier.padding(22.dp)) {
+                        Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)).uppercase(),
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Your research.\nAll in one place.", Modifier.padding(top = 10.dp, bottom = 16.dp), style = MaterialTheme.typography.headlineSmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)) {
+                                Text("$unread unread ${if (unread == 1) "paper" else "papers"}", Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        Text("${categories.size} followed ${if (categories.size == 1) "category" else "categories"}", Modifier.padding(top = 10.dp),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.padding(top = 12.dp, bottom = 2.dp)) {
+                    Text("Followed categories", style = MaterialTheme.typography.titleLarge)
+                    Text("The latest in your fields.", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            val message = error ?: sync.message
+            if (!message.isNullOrBlank()) item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (categories.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                Column {
+                    AppEmptyState("Make it yours", "Follow categories to see the latest research here.", modifier = Modifier.heightIn(min = 200.dp))
+                    TextButton(onClick = onManageCategories, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Choose categories") }
+                }
+            }
+            items(categories, key = { it.category.code }) { HomeCategoryCard(it, onCategoryClick) }
         }
     }
 }
@@ -95,31 +88,22 @@ fun HomeScreen(
 @Composable
 private fun HomeCategoryCard(item: HomeCategoryUiState, onCategoryClick: (ArxivCategory) -> Unit) {
     val category = item.category
-    OutlinedCard(
-        onClick = { onCategoryClick(category) },
-        modifier = Modifier.fillMaxWidth().testTag("home-category-${category.code}"),
-    ) {
-        Column(
-            Modifier.fillMaxWidth().heightIn(min = 164.dp).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Text(
-                    category.code, Modifier.weight(1f).padding(end = 8.dp),
-                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                )
-                Badge(
-                    modifier = Modifier.testTag("home-category-unread-${category.code}")
-                        .semantics { contentDescription = "${item.unreadCount} unread articles" },
-                ) { Text(item.unreadCount.toString()) }
+    Surface(onClick = { onCategoryClick(category) }, shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().testTag("home-category-${category.code}")) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 180.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                SubjectIcon(category.group)
+                Spacer(Modifier.weight(1f))
+                Surface(color = MaterialTheme.colorScheme.background, shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.testTag("home-category-unread-${category.code}").semantics { contentDescription = "${item.unreadCount} unread articles" }) {
+                    Text(item.unreadCount.toString(), Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             Text(category.name, style = MaterialTheme.typography.titleMedium)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    category.group, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                Text(category.code, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
             }
         }
     }

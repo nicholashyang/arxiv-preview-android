@@ -51,7 +51,7 @@ private val destinations = listOf(
     Destination("explore", "Explore", Icons.Default.Search),
     Destination("favorites", "Library", Icons.Default.Bookmark),
     Destination("inbox", "Inbox", Icons.Default.Inbox),
-    Destination("settings", "Setting", Icons.Default.Settings),
+    Destination("settings", "Settings", Icons.Default.Settings),
 )
 
 @Composable

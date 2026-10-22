@@ -99,25 +99,37 @@ class DiscoveryNavigationTest {
     }
     @Test fun inboxReadArchiveRestoreAndNotificationNavigation() {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).putExtra(MainActivity.OPEN_INBOX, true)).use {
-            compose.waitUntil(10000) { runCatching { compose.onNodeWithText("Mark read").assertIsDisplayed(); true }.getOrDefault(false) }
-            compose.onNodeWithText("Mark read").performClick()
-            compose.onNodeWithText("All", substring = false).performClick()
-            compose.waitUntil(5000) { runCatching { compose.onNodeWithText("Mark unread").assertIsDisplayed(); true }.getOrDefault(false) }
-            compose.onNodeWithText("Archive", substring = false).performClick()
-            compose.onNodeWithText("Archived", substring = false).performClick()
-            compose.waitUntil(5000) { runCatching { compose.onNodeWithText("Restore").assertIsDisplayed(); true }.getOrDefault(false) }
-            compose.onNodeWithText("Restore").performClick()
-            compose.waitUntil(5000) { !runBlocking { container.database.discoveryDao().inbox(id)!!.archived } }
-            assertFalse(runBlocking { container.database.discoveryDao().inbox(id)!!.archived })
-            assertTrue(runBlocking { container.database.discoveryDao().inbox(id)!!.isRead })
-            compose.onNodeWithText("All", substring = false).performClick()
-            compose.onNodeWithText("Correlations in proton structure").performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isNotEmpty() }
-            context.startActivity(Intent(context, MainActivity::class.java)
-                .putExtra(MainActivity.OPEN_INBOX, true)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP))
-            compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isEmpty() }
-            compose.onNodeWithText("Read all").assertIsDisplayed()
+            try {
+                compose.waitUntil(10000) { runCatching { compose.onNodeWithText("Mark read").assertIsDisplayed(); true }.getOrDefault(false) }
+                // Settle the initial navigation before sending a rapid sequence of pointer events.
+                compose.mainClock.advanceTimeBy(1_000)
+                compose.waitForIdle()
+                compose.onNodeWithText("Mark read").performClick()
+                compose.onNodeWithText("All", substring = false).performClick()
+                compose.waitUntil(5000) { runCatching { compose.onNodeWithText("Mark unread").assertIsDisplayed(); true }.getOrDefault(false) }
+                compose.onNodeWithText("Archive", substring = false).performClick()
+                compose.onNodeWithText("Archived", substring = false).performClick()
+                compose.waitUntil(5000) { runCatching { compose.onNodeWithText("Restore").assertIsDisplayed(); true }.getOrDefault(false) }
+                compose.onNodeWithText("Restore").performClick()
+                compose.waitUntil(5000) { !runBlocking { container.database.discoveryDao().inbox(id)!!.archived } }
+                assertFalse(runBlocking { container.database.discoveryDao().inbox(id)!!.archived })
+                assertTrue(runBlocking { container.database.discoveryDao().inbox(id)!!.isRead })
+                compose.onNodeWithText("All", substring = false).performClick()
+                compose.onNodeWithText("Correlations in proton structure").performClick()
+                compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isNotEmpty() }
+                context.startActivity(Intent(context, MainActivity::class.java)
+                    .putExtra(MainActivity.OPEN_INBOX, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                compose.waitUntil(5000) { compose.onAllNodesWithText("Paper details").fetchSemanticsNodes().isEmpty() }
+                // The outgoing detail can disappear before the destination's enter animation finishes.
+                compose.waitUntil(5000) {
+                    runCatching { compose.onNodeWithText("Read all").assertIsDisplayed(); true }.getOrDefault(false)
+                }
+            } catch (failure: Throwable) {
+                capture("navigation-failure")
+                java.io.File(context.filesDir, "discovery-qa/navigation-failure.txt").writeText(compose.onRoot().printToString())
+                throw failure
+            }
         }
     }
 }

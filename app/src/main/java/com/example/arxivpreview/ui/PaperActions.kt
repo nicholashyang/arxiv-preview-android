@@ -178,7 +178,10 @@ private fun OrganizationDialog(actions: PaperActions, paper: Paper) {
 internal fun <T> ChoiceMenu(label: String, values: List<T>, selected: T, text: (T) -> String, onSelect: (T) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text("$label: ${text(selected)}") }
+        TextButton(onClick = { open = true }) {
+            Text("$label: ${text(selected)}")
+            Icon(Icons.Default.UnfoldMore, null, Modifier.padding(start = 4.dp).size(16.dp))
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             values.forEach { value -> DropdownMenuItem(text = { Text(text(value)) }, onClick = { onSelect(value); open = false }) }
         }
@@ -212,7 +215,7 @@ private fun OrganizationManager(actions: PaperActions) {
                 IconButton(onClick = { editingId = id; name = label }) { Icon(Icons.Default.Edit, "Rename $label") }
                 IconButton(onClick = { pendingDelete = id to label }) { Icon(Icons.Default.Delete, "Delete $label") }
             } }
-            OutlinedTextField(name, { name = it }, label = { Text(if (editingId == 0L) "New name" else "Rename") }, singleLine = true)
+            AppFormField(name, { name = it }, label = { Text(if (editingId == 0L) "New name" else "Rename") }, singleLine = true)
             Row { TextButton(onClick = { save() }, enabled = !busy) { Text("Save") }
                 if (editingId != 0L) TextButton(onClick = { editingId = 0; name = "" }) { Text("Cancel rename") } }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

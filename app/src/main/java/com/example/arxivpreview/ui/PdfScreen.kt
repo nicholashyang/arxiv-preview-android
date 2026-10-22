@@ -37,9 +37,7 @@ fun PdfScreen(viewModel: PdfViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     var basic by rememberSaveable { mutableStateOf(false) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("PDF") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-        }, actions = {
+        AppNavigationBar(title = "PDF", onBack = onBack, actions = {
             state.paper?.let { paper -> IconButton(onClick = { sharePaper(context, paper) }) { Icon(Icons.Default.Share, "Share paper") } }
             if (!basic && state.fileUri != null) TextButton(onClick = { basic = true }) { Text("Basic reader") }
             IconButton(onClick = { viewModel.retry(forceDownload = true) }, enabled = !state.loading) {

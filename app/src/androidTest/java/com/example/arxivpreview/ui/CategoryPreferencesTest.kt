@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.espresso.Espresso
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -29,12 +30,14 @@ class CategoryPreferencesTest {
         compose.onNodeWithTag("category-group-Computer Science").performScrollTo().performClick()
         compose.onNodeWithText("Artificial Intelligence", substring = false).assertExists()
         compose.onNodeWithTag("category-search").performScrollTo().performTextInput("stat.ML")
+        Espresso.closeSoftKeyboard()
         compose.onNodeWithText("Machine Learning", substring = false).performScrollTo().performClick()
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("category-search").assertTextContains("stat.ML")
         compose.onNodeWithTag("save-categories").performScrollTo().assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(setOf("cs.AI", "stat.ML"), saved) }
         compose.onNodeWithTag("category-search").performScrollTo().performTextClearance()
+        Espresso.closeSoftKeyboard()
         compose.onNodeWithText("Artificial Intelligence", substring = false).assertExists()
         compose.onNodeWithTag("category-group-Computer Science").performScrollTo().performClick()
         compose.onNodeWithText("Artificial Intelligence", substring = false).assertDoesNotExist()

@@ -12,9 +12,9 @@ android {
         applicationId = "com.example.arxivpreview"
         minSdk = 31
         targetSdk = 37
-        versionCode = 7
+        versionCode = 8
         // Calendar build ID keeps older installed updaters compatible; UI shows the date.
-        versionName = "20261023044353"
+        versionName = "20261023050200"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

@@ -2,6 +2,8 @@
 package com.example.arxivpreview.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +11,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,11 +52,10 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
 }
 
 @Composable private fun DiscoveryHeader(title: String, refreshing: Boolean, refresh: () -> Unit, extra: @Composable RowScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+    AppLargeTitle(title, actions = {
         extra()
         IconButton(onClick = refresh, enabled = !refreshing) { Icon(Icons.Default.Refresh, "Refresh $title") }
-    }
+    })
     if (refreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
 }
 @Composable private fun StatusText(message: String?) { if (!message.isNullOrBlank()) Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
@@ -66,13 +68,14 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     val filtered = all.filter { when (filter) { "Archived" -> it.archived; "Unread" -> !it.archived && !it.isRead; else -> !it.archived } }
     Column(Modifier.padding(padding).fillMaxSize()) {
         DiscoveryHeader("Inbox", sync.running, vm::refresh)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Unread", "All", "Archived").forEach { label -> FilterChip(filter == label, { filter = label }, label = { Text(label) }) }
+        AppSegmentedControl(listOf("Unread", "All", "Archived"), filter, { filter = it }, Modifier.padding(horizontal = 20.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${filtered.size} ${if (filtered.size == 1) "update" else "updates"}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { vm.run { vm.container.inboxRepository.readAll() } }) { Text("Read all") }
         }
-        LazyColumn {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 20.dp)) {
             item { StatusText(sync.message ?: "${discoveryDate(sources.maxOfOrNull { it.completedAt } ?: 0)} · Author updates may arrive after indexing.") }
-            if (filtered.isEmpty()) item { Text("No ${filter.lowercase()} updates. Follow authors and topics in Setting, then refresh.", Modifier.padding(20.dp)) }
+            if (filtered.isEmpty()) item { AppEmptyState("You’re all caught up", "No ${filter.lowercase()} updates. Follow authors and topics in Settings, then refresh.", Icons.Default.Inbox, Modifier.heightIn(min = 260.dp)) }
             items(filtered, key = { it.paper.id }) { item ->
                 Text((if (!item.isRead) "● " else "") + item.reasons.joinToString(" · "), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.labelMedium)
                 SwipePaperCard(item.paper) { paper -> vm.run { vm.container.inboxRepository.read(paper.id); onPaper(paper) } }
@@ -92,10 +95,8 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     val tabState = rememberSaveableStateHolder()
     var categoryQuery by rememberSaveable { mutableStateOf("") }
     Column(Modifier.padding(padding).fillMaxSize()) {
-        Text("Explore", Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineMedium)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Latest", "Papers", "Authors", "Categories").forEach { label -> FilterChip(tab == label, { tab = label }, label = { Text(label) }) }
-        }
+        AppLargeTitle("Explore", "Discover something remarkable.")
+        AppSegmentedControl(listOf("Latest", "Papers", "Authors", "Categories"), tab, { tab = it }, Modifier.padding(horizontal = 20.dp))
         Box(Modifier.weight(1f)) {
             tabState.SaveableStateProvider(tab) {
             when (tab) {
@@ -103,7 +104,7 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
                 "Papers" -> SearchScreen(search, PaddingValues(), onPaper)
                 "Authors" -> AuthorSearchScreen(authorSearch, onAuthor)
                 else -> Column {
-                    OutlinedTextField(categoryQuery, { categoryQuery = it }, label = { Text("Find a category") }, modifier = Modifier.fillMaxWidth().padding(16.dp), singleLine = true)
+                    AppSearchField(categoryQuery, { categoryQuery = it }, "Find a category", Modifier.padding(20.dp))
                     LazyColumn { items(ArxivCategories.all.filter { it.code.contains(categoryQuery, true) || it.name.contains(categoryQuery, true) }, key = { it.code }) { category ->
                         ListItem(headlineContent = { Text(category.name) }, supportingContent = { Text("${category.code} · ${category.group}") }, modifier = Modifier.clickable {
                             search.edit(SearchCriteria(categories = setOf(category.code), sort = SearchSort.SUBMITTED)); search.search(); tab = "Papers"
@@ -120,8 +121,8 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     val state by vm.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     Column {
-        OutlinedTextField(query, { query = it }, label = { Text("Author name") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(16.dp))
-        Button(onClick = { vm.search(query) }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Search authors") }
+        AppSearchField(query, { query = it }, "Author name", Modifier.padding(20.dp), onSearch = { vm.search(query) })
+        FilledTonalButton(onClick = { vm.search(query) }, modifier = Modifier.padding(horizontal = 20.dp)) { Text("Search authors") }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         LazyColumn {
             item { StatusText(state.error); if (state.submitted && !state.loading && state.results.isEmpty()) StatusText("No matching authors. Try another spelling.") }
@@ -153,7 +154,7 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
         catch (e: Exception) { message = e.message }
         finally { loading = false }
     }
-    Scaffold(topBar = { TopAppBar(title = { Text(name) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }) }) { padding ->
+    Scaffold(topBar = { AppNavigationBar(title = name, onBack = onBack) }) { padding ->
         LazyColumn(Modifier.padding(padding)) {
             item { StatusText(message); if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 FlowRow { TextButton(onClick = { retry++ }, enabled = !loading) { Text("Retry") }; TextButton(onClick = { searchingNames = true; retry++ }, enabled = !loading) { Text("Find author profiles") } }
@@ -170,15 +171,21 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     val uri = LocalUriHandler.current
     val actions = LocalPaperActions.current
     val warning by vm.container.semanticScholar.warning.collectAsStateWithLifecycle()
-    Scaffold(topBar = { TopAppBar(title = { Text("Author") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }, actions = { IconButton(onClick = vm::refresh, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Refresh author") } }) }) { padding ->
+    Scaffold(topBar = { AppNavigationBar(title = "Author", onBack = onBack, actions = { IconButton(onClick = vm::refresh, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Refresh author") } }) }) { padding ->
         LazyColumn(Modifier.padding(padding)) {
             item {
                 Column(Modifier.padding(20.dp)) {
                     state.profile?.let { p ->
                         Text(p.name, style = MaterialTheme.typography.headlineMedium)
                         Text(p.affiliations.joinToString(" · ").ifBlank { "Affiliation not provided" }, Modifier.padding(vertical = 8.dp))
-                        Text("Papers: ${p.paperCount ?: "Not provided"} · Citations: ${p.citationCount ?: "Not provided"} · h-index: ${p.hIndex ?: "Not provided"}")
-                        Button(onClick = vm::follow) { Text(if (following) "Following · Unfollow" else "Follow author") }
+                        Surface(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                            Row(Modifier.padding(vertical = 20.dp)) {
+                                AuthorStatistic("Papers", p.paperCount?.toString() ?: "—", Modifier.weight(1f))
+                                AuthorStatistic("Citations", p.citationCount?.toString() ?: "—", Modifier.weight(1f))
+                                AuthorStatistic("h-index", p.hIndex?.toString() ?: "—", Modifier.weight(1f))
+                            }
+                        }
+                        FilledTonalButton(onClick = vm::follow, modifier = Modifier.fillMaxWidth()) { Text(if (following) "Following · Unfollow" else "Follow author") }
                         StatusText("Semantic Scholar · ${discoveryDate(p.updatedAt)}${if (state.stale) " · Cached" else ""}")
                     }
                     if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -188,9 +195,11 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
                 }
             }
             items(state.works, key = { it.id }) { work ->
-                ListItem(headlineContent = { Text(work.title) }, supportingContent = { Text("${work.year ?: "Date not provided"} · ${work.arxivId?.let { "arXiv:$it" } ?: "Open in Semantic Scholar"}") }, modifier = Modifier.clickable {
+                Surface(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                ListItem(headlineContent = { Text(work.title) }, trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline) }, supportingContent = { Text("${work.year ?: "Date not provided"} · ${work.arxivId?.let { "arXiv:$it" } ?: "Open in Semantic Scholar"}") }, modifier = Modifier.clickable {
                     if (work.arxivId != null) vm.open(work, onPaper) else actions.run { uri.openUri(work.url) }
                 })
+                }
             }
             if (state.next != null) item { TextButton(onClick = vm::more, enabled = !state.loading) { Text("Load more papers") } }
         }
@@ -208,34 +217,71 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     var topic by rememberSaveable { mutableStateOf("") }
     // Never put API keys in saved instance state.
     var key by remember { mutableStateOf("") }
-    Scaffold(topBar = { TopAppBar(title = { Text("Research preferences") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } }) }) { padding ->
-        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { StatusText(error); Text("Following authors", style = MaterialTheme.typography.titleLarge); if (authors.isEmpty()) Text("Find an author in Explore or tap an author on a paper.") }
+    Scaffold(topBar = { AppNavigationBar(title = "Research preferences", onBack = onBack) }) { padding ->
+        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item { StatusText(error)
+                AppInsetGroup("Following authors") {
+                    if (authors.isEmpty()) Text("Find an author in Explore or tap an author on a paper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else Text("${authors.size} followed authors", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             items(authors, key = { "author:${it.id}" }) { a ->
-                Row(verticalAlignment = Alignment.CenterVertically) { TextButton(onClick = { onAuthor(a.id) }, modifier = Modifier.weight(1f)) { Text(a.name) }; TextButton(onClick = { vm.run { vm.container.authorRepository.follow(a.id, false) } }) { Text("Unfollow") } }
+                Surface(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(horizontal = 20.dp, vertical = 3.dp)) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onAuthor(a.id) }, modifier = Modifier.weight(1f)) { Text(a.name) }
+                        TextButton(onClick = { vm.run { vm.container.authorRepository.follow(a.id, false) } }) { Text("Unfollow") }
+                    }
+                }
             }
-            item { HorizontalDivider(); Text("Topics & keywords", style = MaterialTheme.typography.titleLarge)
-                Text("Match a phrase in paper titles or abstracts. Topics can bring in papers beyond your categories.")
-                OutlinedTextField(topic, { topic = it }, label = { Text("Add a topic") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                TextButton(onClick = { vm.addKeyword(topic); topic = "" }) { Text("Add topic") }
-            }
-            items(keywords, key = { "keyword:${it.text}" }) { k -> Row(verticalAlignment = Alignment.CenterVertically) { Text(k.text, Modifier.weight(1f)); TextButton(onClick = { vm.removeKeyword(k.text) }) { Text("Remove") } } }
             item {
-                Text("Followed categories: ${prefs.categories.sorted().joinToString(", ")}")
-                Text("Manage categories under Setting → Content preferences.", style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                Text("Online recommendations", style = MaterialTheme.typography.titleLarge)
-                Row(verticalAlignment = Alignment.CenterVertically) { Text("Enhance recommendations", Modifier.weight(1f)); Switch(prefs.onlineRecommendations, { value -> vm.run { vm.container.preferencesRepository.setOnlineRecommendations(value) } }) }
-                Text("Uses saved and excluded paper IDs with Semantic Scholar. Your reading time is not recorded. Local ranking works without this option.")
-                Text("Semantic Scholar access", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleLarge)
-                Text(if (configured) "Personal key stored securely" else "Public access · A personal key is optional")
-                OutlinedTextField(key, { key = it }, label = { Text("Personal API key") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
-                FlowRow { TextButton(onClick = { vm.saveKey(key); key = "" }, enabled = key.isNotBlank()) { Text("Save key") }; TextButton(onClick = vm::validateKey) { Text("Validate access") }; if (configured) TextButton(onClick = vm::deleteKey) { Text("Delete key") } }
-                StatusText(status)
-                HorizontalDivider(); Text("Not interested", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleLarge)
-                if (feedback.isEmpty()) Text("No excluded papers.")
+                AppInsetGroup("Topics & keywords") {
+                    Text("Match a phrase in paper titles or abstracts. Topics can bring in papers beyond your categories.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppFormField(topic, { topic = it }, label = { Text("Add a topic") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    TextButton(onClick = { vm.addKeyword(topic); topic = "" }, enabled = topic.isNotBlank()) { Text("Add topic") }
+                }
             }
-            items(feedback, key = { "feedback:${it.paperId}" }) { f -> Row(verticalAlignment = Alignment.CenterVertically) { Text("arXiv:${f.paperId}", Modifier.weight(1f)); TextButton(onClick = { vm.run { vm.container.recommendationRepository.restore(f.paperId) } }) { Text("Restore") } } }
+            items(keywords, key = { "keyword:${it.text}" }) { k ->
+                Surface(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(horizontal = 20.dp, vertical = 3.dp)) {
+                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(k.text, Modifier.weight(1f)); TextButton(onClick = { vm.removeKeyword(k.text) }) { Text("Remove") }
+                    }
+                }
+            }
+            item {
+                AppInsetGroup("Categories") {
+                    Text("${prefs.categories.size} followed categories", style = MaterialTheme.typography.titleMedium)
+                    Text(prefs.categories.sorted().joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Manage categories under Settings → Content preferences.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                AppInsetGroup("Online recommendations") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Enhance recommendations", Modifier.weight(1f))
+                        AppSwitch(prefs.onlineRecommendations, { value -> vm.run { vm.container.preferencesRepository.setOnlineRecommendations(value) } })
+                    }
+                    Text("Uses saved and excluded paper IDs with Semantic Scholar. Your reading time is not recorded. Local ranking works without this option.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                AppInsetGroup("Semantic Scholar access") {
+                    Text(if (configured) "Personal key stored securely" else "Public access · A personal key is optional", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppFormField(key, { key = it }, label = { Text("Personal API key") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
+                    FlowRow {
+                        TextButton(onClick = { vm.saveKey(key); key = "" }, enabled = key.isNotBlank()) { Text("Save key") }
+                        TextButton(onClick = vm::validateKey) { Text("Validate access") }
+                        if (configured) TextButton(onClick = vm::deleteKey) { Text("Delete key") }
+                    }
+                    StatusText(status)
+                }
+                AppInsetGroup("Not interested") {
+                    Text(if (feedback.isEmpty()) "No excluded papers." else "${feedback.size} excluded papers", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            items(feedback, key = { "feedback:${it.paperId}" }) { f ->
+                Surface(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(horizontal = 20.dp, vertical = 3.dp)) {
+                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("arXiv:${f.paperId}", Modifier.weight(1f))
+                        TextButton(onClick = { vm.run { vm.container.recommendationRepository.restore(f.paperId) } }) { Text("Restore") }
+                    }
+                }
+            }
         }
     }
 }
@@ -261,4 +307,12 @@ internal fun discoveryDate(value: Long): String = if (value == 0L) "Not synced y
     TextButton(onClick = { requested = true; retry++ }, enabled = !loading) { Text(if (loading) "Loading…" else if (requested) "Refresh similar papers" else "Find similar papers") }
     if (requested && !loading && results.isEmpty()) StatusText(error ?: "No similar papers available yet.")
     results.forEach { related -> TextButton(onClick = { nav.paper(related) }) { Text(related.title) } }
+}
+
+@Composable
+private fun AuthorStatistic(label: String, value: String, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(value, style = MaterialTheme.typography.titleLarge)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }

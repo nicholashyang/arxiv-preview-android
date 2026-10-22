@@ -2,6 +2,17 @@
 
 A local-first Android app for discovering, searching, saving, and reading arXiv papers.
 
+## Apple-inspired redesign · 2026-10-23
+
+- A unified visual system with system-blue actions, large titles, neutral grouped backgrounds, fine separators, rounded surfaces, and coordinated light/dark appearances.
+- Home now has a daily research overview, a distinct unread-paper count, and subject icons on followed-category cards. The category badges retain their individual unread counts.
+- Explore and Inbox use segmented controls. Search fields have inline clearing and keyboard search; advanced forms share a quiet filled treatment. Library keeps local search, group and tag filters, and swipe actions.
+- Paper cards have a consistent metadata/title/author/abstract hierarchy. Details place equal HTML/PDF reading actions above the abstract. Secondary screens and both readers share a compact back toolbar.
+- Settings uses inset groups, checkmark appearance selection, colored permission icons, and grouped research preferences. The navigation label is now **Settings**.
+- Phones use a compact tab bar, medium windows use an icon rail, and windows at least 1100dp wide use a labeled sidebar. Existing folding, selection, reading-position, and local-data behavior is retained.
+
+See [redesign validation and screenshots](docs/VALIDATION-apple-redesign.md).
+
 ## 2026-10-23
 
 - Releases are identified by date and use the fixed APK filename `arxiv-preview-universal.apk`. About shows the build date, and update notices omit version numbers.
@@ -14,7 +25,7 @@ See [foldable validation](docs/VALIDATION-foldables.md).
 
 ## Version 1.5.0
 
-- Home displays category cards selected in **Setting → Content preferences → Followed categories**. Each card opens the category’s latest papers and shows the unread count for synced, unarchived papers in its upper-right corner. Opening a paper updates the persisted read state across the app.
+- Home displays category cards selected in **Settings → Content preferences → Followed categories**. Each card opens the category’s latest papers and shows the unread count for synced, unarchived papers in its upper-right corner. Opening a paper updates the persisted read state across the app.
 - **Profile** is renamed **Setting**, with a settings icon and updated navigation hints.
 - Category changes trigger discovery synchronization. Category cards adapt to large text sizes.
 
@@ -61,7 +72,7 @@ See [validation and screenshots](docs/VALIDATION-browsing-reading.md).
 - Save favorites locally with Room.
 - Manually download PDFs for offline reading.
 - Optional daily summary notifications for new Inbox papers.
-- Build date in Setting, manual update checks, and APK download/install from GitHub Releases.
+- Build date in Settings, manual update checks, and APK download/install from GitHub Releases.
 - Automatic daily app update checks, system and in-app reminders, and downloads on request.
 
 The interface is English. Paper metadata is shown as published by arXiv. This is an independent reader; third-party assets and their sources are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
@@ -103,7 +114,7 @@ DataStore. WorkManager runs durable PDF downloads and the approximate 09:00 dail
 
 ## App updates
 
-Setting groups Appearance, Notifications, App permissions, Content preferences, and About arXiv
+Settings groups Appearance, Notifications, App permissions, Content preferences, and About arXiv
 on one page. Content preferences groups followed categories by subject, with expandable lists,
 search, selected counts, and an explicit Save button. App permissions shows notification and
 unknown-app installation access and opens the corresponding Android settings.
@@ -146,7 +157,7 @@ the [arXiv API manual](https://info.arxiv.org/help/api/user-manual.html).
 
 arXiv remains the source for paper metadata and reading links. Semantic Scholar supplies author identities, author statistics, and optional recommendations. An author’s statistics cover their Semantic Scholar record, while Inbox only imports works with a valid arXiv ID. Non-arXiv works in the author profile open on Semantic Scholar. Missing fields are displayed as unavailable; author updates can be delayed by indexing.
 
-Public Semantic Scholar access is attempted without an API key. Shared limits can return HTTP 429, and some endpoints may require a personal key. Configure one through **Setting → Research → Semantic Scholar access**. Each client serializes requests at roughly one request per second, retries temporary failures with bounded backoff, and preserves cached data. Author/API metadata cache lasts 24 hours; recommendation responses last six hours. Refreshing an author or validating access bypasses the corresponding cache. The app never embeds a shared credential.
+Public Semantic Scholar access is attempted without an API key. Shared limits can return HTTP 429, and some endpoints may require a personal key. Configure one through **Settings → Research → Semantic Scholar access**. Each client serializes requests at roughly one request per second, retries temporary failures with bounded backoff, and preserves cached data. Author/API metadata cache lasts 24 hours; recommendation responses last six hours. Refreshing an author or validating access bypasses the corresponding cache. The app never embeds a shared credential.
 
 Each source processes up to eight pages per refresh and persists its next offset after every completed page. Large subscriptions can show “Refresh to continue”; the daily worker also performs bounded retries. Category/topic windows overlap by two days, and author queries recheck the relevant publication years with a 30-day overlap to accommodate indexing delays. Initial subscriptions receive a silent seven-day baseline. This is a client-side discovery service, not a guarantee of exhaustive real-time indexing.
 

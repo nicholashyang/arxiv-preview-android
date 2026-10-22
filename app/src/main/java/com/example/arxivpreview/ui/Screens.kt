@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -33,12 +34,17 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.ui.platform.LocalContext
 import com.example.arxivpreview.data.SwipeAction
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,7 +59,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -96,6 +101,10 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
                     .statusBarsPadding()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(20.dp)) {
+                    Icon(Icons.Default.AutoStories, null, Modifier.padding(16.dp).size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(20.dp))
                 Text("Welcome to arXiV", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -110,8 +119,9 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
                 enabled = selected.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(20.dp)
                     .navigationBarsPadding()
+                    .heightIn(min = 52.dp)
                     .testTag("continue"),
             ) {
                 Text("Continue with ${selected.size} selected")
@@ -151,11 +161,10 @@ fun FavoritesScreen(
     }
     var showTags by remember { mutableStateOf(false) }
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Library", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f).padding(20.dp))
+        AppLargeTitle("Library", "${papers.size} saved ${if (papers.size == 1) "paper" else "papers"}", actions = {
             TextButton(onClick = { actions.managing = true }) { Text("Manage") }
-        }
-        OutlinedTextField(query, { query = it }, label = { Text("Search favorites") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+        })
+        AppSearchField(query, { query = it }, "Search favorites", Modifier.padding(horizontal = 20.dp))
         Column(Modifier.padding(horizontal = 16.dp)) {
             ChoiceMenu("Group", listOf<Long?>(null, -1L) + actions.groups.map { it.id }, group,
                 { id -> when(id) { null -> "All favorites"; -1L -> "Ungrouped"; else -> actions.groups.firstOrNull { it.id == id }?.name ?: "All favorites" } }, { group = it })
@@ -164,8 +173,8 @@ fun FavoritesScreen(
                 TextButton(onClick = { query = ""; group = null; tags = emptySet() }) { Text("Clear filters") }
             }
         }
-        if (filtered.isEmpty()) EmptyMessage("No matching favorites", "Save a paper or change your filters.")
-        else LazyColumn { items(filtered, key = Paper::id) { SwipePaperCard(it, onPaperClick) } }
+        if (filtered.isEmpty()) AppEmptyState("No matching favorites", "Save a paper or change your filters.", Icons.Default.BookmarkBorder, Modifier.weight(1f))
+        else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 20.dp)) { items(filtered, key = Paper::id) { SwipePaperCard(it, onPaperClick) } }
     }
     if (showTags) AlertDialog(onDismissRequest = { showTags = false }, title = { Text("Match all selected tags") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) { actions.tags.forEach { tag -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,14 +195,11 @@ fun DetailScreen(
     val actions = LocalPaperActions.current
     val context = LocalContext.current
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            TopAppBar(
-                title = { Text("Paper details") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+            AppNavigationBar(
+                title = "Paper details",
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = { state.paper?.let { sharePaper(context, it) } }, enabled = state.paper != null) { Icon(Icons.Default.Share, "Share paper") }
                     IconButton(onClick = { actions.organizing = state.paper }, enabled = state.paper != null) { Icon(Icons.Default.Folder, "Groups & tags") }
@@ -220,7 +226,9 @@ fun DetailScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            MathText(paper.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(paper.primaryCategory.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(12.dp))
+            MathText(paper.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             PaperAuthors(paper)
             Spacer(Modifier.height(12.dp))
@@ -235,7 +243,12 @@ fun DetailScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary,
             )
-            HorizontalDivider(Modifier.padding(vertical = 18.dp))
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = onReadHtml, modifier = Modifier.weight(1f)) { Text("Read HTML") }
+                FilledTonalButton(onClick = onReadPdf, modifier = Modifier.weight(1f)) { Text(if (state.download != null) "Offline PDF" else "Read PDF") }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 24.dp), thickness = .5.dp)
             Text("Abstract", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             MathText(paper.summary, style = MaterialTheme.typography.bodyLarge)
@@ -250,13 +263,7 @@ fun DetailScreen(
                 Text(it)
             }
             Spacer(Modifier.height(24.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onReadHtml, modifier = Modifier.weight(1f)) { Text("Read HTML") }
-                OutlinedButton(onClick = onReadPdf, modifier = Modifier.weight(1f)) {
-                    Text(if (state.download != null) "Offline PDF" else "Read PDF")
-                }
-            }
-            Spacer(Modifier.height(10.dp))
+
             when {
                 state.download != null -> OutlinedButton(
                     onClick = viewModel::deleteDownload,
@@ -342,38 +349,34 @@ internal fun PaperList(
 internal fun PaperCard(paper: Paper, onPaperClick: (Paper) -> Unit) {
     val actions = LocalPaperActions.current
     val isSelected = LocalSelectedPaperId.current == paper.id
+    val background = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
     Card(
-        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).semantics { selected = isSelected },
+        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .4f)) else null,
+        colors = CardDefaults.cardColors(containerColor = background),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp).semantics { selected = isSelected },
     ) {
-        Box {
-            Column(Modifier.semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }.clickable { onPaperClick(paper) }.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(paper.primaryCategory.uppercase(), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.weight(1f))
-                    Text(formatDate(paper.publishedAt), modifier = Modifier.padding(end = 48.dp), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(Modifier.height(10.dp))
-                Box {
-                    MathText(paper.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    if (containsMath(paper.title)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
-                }
-                Spacer(Modifier.height(7.dp))
-                PaperAuthors(paper, compact = true)
-                Spacer(Modifier.height(10.dp))
-                Box {
-                    MathText(paper.summary, maxLines = 3, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (containsMath(paper.summary)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
+        Column(Modifier.semantics { contentDescription = "${paper.title}. ${paper.authors.joinToString(", ")}. ${paper.summary}" }
+            .clickable { onPaperClick(paper) }.padding(start = 18.dp, end = 18.dp, bottom = 18.dp, top = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(paper.primaryCategory.uppercase(), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                if (actions.records.any { it.paperId == paper.id }) Icon(Icons.Default.Bookmark, "Saved", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = { actions.more = paper }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Default.MoreHoriz, "More actions for ${paper.id}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Row(Modifier.align(Alignment.TopEnd).background(MaterialTheme.colorScheme.surface), verticalAlignment = Alignment.CenterVertically) {
-                if (actions.records.any { it.paperId == paper.id }) Icon(Icons.Default.Bookmark, "Saved", Modifier.size(18.dp))
-                IconButton(onClick = { actions.more = paper }) { Icon(Icons.Default.MoreVert, "More actions for ${paper.id}") }
+            Box(Modifier.clickable { onPaperClick(paper) }) {
+                MathText(paper.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                if (containsMath(paper.title)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
             }
+            Spacer(Modifier.height(4.dp))
+            PaperAuthors(paper, compact = true)
+            Spacer(Modifier.height(6.dp))
+            Box {
+                MathText(paper.summary, maxLines = 3, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (containsMath(paper.summary)) Box(Modifier.matchParentSize().clickable { onPaperClick(paper) })
+            }
+            Text(formatDate(paper.publishedAt), Modifier.padding(top = 14.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -405,19 +408,7 @@ private fun PaperSkeleton() {
 }
 
 @Composable
-private fun EmptyMessage(title: String, message: String) {
-    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-    }
-}
+private fun EmptyMessage(title: String, message: String) = AppEmptyState(title, message)
 
 @Composable
 private fun CategoryPicker(
@@ -428,14 +419,7 @@ private fun CategoryPicker(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        OutlinedTextField(
-            value = search,
-            onValueChange = onSearchChange,
-            label = { Text("Search categories") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        AppSearchField(search, onSearchChange, "Search categories")
         Spacer(Modifier.height(8.dp))
         val filtered = remember(search) { filteredCategories(search) }
         LazyColumn {
@@ -468,14 +452,9 @@ internal fun CategoryRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        FilterChip(
-            selected = selected,
-            onClick = onToggle,
-            label = { Text(if (selected) "Following" else "Follow") },
-            leadingIcon = if (selected) {
-                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-            } else null,
-        )
+        Icon(if (selected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+            if (selected) "Following" else "Follow", Modifier.padding(start = 12.dp).size(24.dp),
+            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
     }
 }
 
@@ -491,7 +470,7 @@ private fun CategoryFilterDialog(
         title = { Text("Filter by category") },
         text = {
             Column(Modifier.height(480.dp)) {
-                OutlinedTextField(
+                AppFormField(
                     value = search,
                     onValueChange = { search = it },
                     label = { Text("Search") },

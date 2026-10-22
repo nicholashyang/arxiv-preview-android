@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -123,12 +123,10 @@ internal fun HtmlScreen(
     }
     LaunchedEffect(dark) { webView?.let { applyHtmlTheme(it, dark) } }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("HTML") }, navigationIcon = {
-            IconButton(onClick = { back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-        }, actions = {
+        AppNavigationBar(title = "HTML", onBack = { back() }, actions = {
             IconButton(onClick = { sharePaper(context, paper) }) { Icon(Icons.Default.Share, "Share paper") }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Reader tools") }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Default.Tune, "Reader tools") }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(text = { Text("Contents") }, onClick = { menu = false; webView?.evaluateJavascript(readerContentsScript) { raw ->
                         contents = runCatching { val array = org.json.JSONArray(raw); (0 until array.length()).map { i -> array.getJSONObject(i).let { it.getString("id") to it.getString("title") } } }.getOrDefault(emptyList())
@@ -242,7 +240,7 @@ internal fun HtmlScreen(
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Mobile layout", Modifier.weight(1f))
-                Switch(preferences.readerMobile, { enabled -> scope.launch { container.preferencesRepository.setReader(enabled, preferences.readerFont, preferences.readerLine) } })
+                AppSwitch(preferences.readerMobile, { enabled -> scope.launch { container.preferencesRepository.setReader(enabled, preferences.readerFont, preferences.readerLine) } })
             }
             Text(if (preferences.readerMobile) "Mobile layout" else "Original layout")
             ChoiceMenu("Font size", listOf(16,18,20,22,24), preferences.readerFont, { it.toString() }, { font -> scope.launch { container.preferencesRepository.setReader(preferences.readerMobile, font, preferences.readerLine) } })
@@ -259,7 +257,7 @@ internal fun HtmlScreen(
     }, confirmButton = { TextButton(onClick = { contents = null }) { Text("Close") } }) }
     if (showFind) AlertDialog(onDismissRequest = { showFind = false; webView?.clearMatches() }, title = { Text("Find in page") }, text = {
         Column {
-            OutlinedTextField(findText, { findText = it; webView?.findAllAsync(it) }, singleLine = true, label = { Text("Find text") })
+            AppFormField(findText, { findText = it; webView?.findAllAsync(it) }, singleLine = true, label = { Text("Find text") })
             Text(findCount)
             Row { TextButton(onClick = { webView?.findNext(false) }) { Text("Previous") }; TextButton(onClick = { webView?.findNext(true) }) { Text("Next") } }
         }
@@ -271,7 +269,7 @@ private fun applyHtmlTheme(view: WebView, dark: Boolean) {
     if (!isArxivHtml(Uri.parse(view.url ?: return))) return
     val background = if (dark) "#111113" else "#ffffff"
     val foreground = if (dark) "#ebebf0" else "#1c1c1e"
-    val link = if (dark) "#ff918b" else "#b31b1b"
+    val link = if (dark) "#0a84ff" else "#007aff"
     val css = "html,body{background:$background!important;color:$foreground!important;color-scheme:${if (dark) "dark" else "light"}} " +
         ".ltx_page_main,.ltx_page_content,.ltx_document,.ltx_para,.ltx_title,.ltx_abstract,.ltx_p,.ltx_equation,.ltx_equationgroup{background:transparent!important;color:inherit!important} " +
         "a{color:$link!important} img,svg{filter:none!important} img{background:white}"

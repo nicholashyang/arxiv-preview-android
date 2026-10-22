@@ -84,7 +84,7 @@ class HomeNavigationTest {
     @Test fun settingCategorySelectionUpdatesHomeCards() {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             waitForCard("math.AP")
-            compose.onNodeWithTag("nav-settings").assertTextContains("Setting").performClick()
+            compose.onNodeWithTag("nav-settings").assertTextContains("Settings").performClick()
             compose.onAllNodesWithText("Profile", substring = false).assertCountEquals(0)
             compose.onNodeWithTag("settings-list").performScrollToNode(hasTestTag("category-search"))
             compose.onNodeWithTag("category-search").performTextInput("math.AC")

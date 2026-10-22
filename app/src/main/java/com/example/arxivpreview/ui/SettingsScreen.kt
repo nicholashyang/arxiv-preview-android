@@ -15,7 +15,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -100,21 +102,20 @@ fun SettingsScreen(
     DisposableEffect(Unit) { onDispose { onAboutVisible(false) } }
 
     Column(Modifier.padding(contentPadding).fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Setting", style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f).padding(horizontal = 20.dp, vertical = 12.dp))
+        AppLargeTitle("Settings", actions = {
             onResearchPreferences?.let { TextButton(onClick = it) { Text("Research") } }
-        }
+        })
         LazyColumn(state = listState, modifier = Modifier.weight(1f).testTag("settings-list"),
             contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "appearance") {
                 SettingsGroup("Appearance") {
-                    ThemeMode.entries.forEach { mode ->
+                    ThemeMode.entries.forEachIndexed { index, mode ->
                         Row(Modifier.fillMaxWidth().clickable { viewModel.setThemeMode(mode) }
-                            .padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (mode == ThemeMode.SYSTEM) "Follow system" else mode.label, Modifier.weight(1f))
-                            RadioButton(selected = state.preferences.themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
+                            .heightIn(min = 52.dp).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (mode == ThemeMode.SYSTEM) "Follow system" else mode.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            if (state.preferences.themeMode == mode) Icon(Icons.Default.Check, "Selected", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                         }
+                        if (index < ThemeMode.entries.lastIndex) HorizontalDivider(Modifier.padding(start = 16.dp), thickness = .5.dp)
                     }
                 }
             }
@@ -129,10 +130,11 @@ fun SettingsScreen(
             item(key = "notifications") {
                 SettingsGroup("Notifications") {
                     ListItem(
+                        leadingContent = { SettingsIcon(Icons.Default.Notifications, Color(0xFFFF3B30)) },
                         headlineContent = { Text("Daily update notifications") },
                         supportingContent = { Text("A summary when new submissions are available") },
                         trailingContent = {
-                            Switch(checked = state.preferences.notificationsEnabled, onCheckedChange = { enabled ->
+                            AppSwitch(checked = state.preferences.notificationsEnabled, onCheckedChange = { enabled ->
                                 when {
                                     !enabled -> viewModel.setNotifications(false)
                                     notificationsAllowed -> viewModel.setNotifications(true)
@@ -160,7 +162,7 @@ fun SettingsScreen(
                     HorizontalDivider(Modifier.padding(start = 16.dp))
                     PermissionRow("Install unknown apps", installsAllowed) { openSettings(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) }
                     HorizontalDivider(Modifier.padding(start = 16.dp))
-                    ListItem(headlineContent = { Text("App info") },
+                    ListItem(headlineContent = { Text("App info") }, leadingContent = { SettingsIcon(Icons.Default.Info, Color(0xFF8E8E93)) },
                         supportingContent = { Text("Manage this app in Android Settings") },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
                         modifier = Modifier.clickable { openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS) })
@@ -182,9 +184,9 @@ fun SettingsScreen(
 @Composable
 private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
-        Text(title.uppercase(), Modifier.padding(start = 32.dp, top = 24.dp, end = 24.dp, bottom = 8.dp),
+        Text(title.uppercase(), Modifier.padding(start = 36.dp, top = 20.dp, end = 24.dp, bottom = 8.dp),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Surface(Modifier.padding(horizontal = 16.dp).fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+        Surface(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
             Column(content = content)
         }
     }
@@ -193,6 +195,7 @@ private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> 
 @Composable
 private fun PermissionRow(title: String, allowed: Boolean, onClick: () -> Unit) {
     ListItem(headlineContent = { Text(title) },
+        leadingContent = { SettingsIcon(if (title == "Notifications") Icons.Default.Notifications else Icons.Default.Download, if (title == "Notifications") Color(0xFFFF3B30) else Color(0xFF34C759)) },
         supportingContent = { Text(if (allowed) "Allowed" else "Not allowed") },
         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
         modifier = Modifier.clickable(onClick = onClick))
@@ -213,9 +216,7 @@ internal fun CategoryPreferences(categories: Set<String>, onSave: (Set<String>) 
     val query = search.trim()
     Column {
         Text("Followed categories", Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(value = search, onValueChange = { search = it }, label = { Text("Filter categories") },
-            leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("category-search"))
+        AppSearchField(search, { search = it }, "Filter categories", Modifier.padding(horizontal = 16.dp).testTag("category-search"))
         val matches = groups.mapValues { (_, children) -> children.filter {
             query.isEmpty() || it.code.contains(query, true) || it.name.contains(query, true) || it.group.contains(query, true)
         } }.filterValues { it.isNotEmpty() }
@@ -223,7 +224,7 @@ internal fun CategoryPreferences(categories: Set<String>, onSave: (Set<String>) 
         matches.forEach { (group, children) ->
             val isExpanded = query.isNotEmpty() || group in expanded
             ListItem(
-                headlineContent = { Text(group) },
+                headlineContent = { Text(group) }, leadingContent = { SubjectIcon(group) },
                 supportingContent = { Text("${groups.getValue(group).count { it.code in selected }} selected") },
                 trailingContent = { Icon(if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null) },
                 modifier = Modifier.testTag("category-group-$group")
@@ -245,5 +246,12 @@ internal fun CategoryPreferences(categories: Set<String>, onSave: (Set<String>) 
             modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("save-categories")) {
             Text("Save ${selected.size} categories")
         }
+    }
+}
+
+@Composable
+private fun SettingsIcon(icon: ImageVector, color: Color) {
+    Surface(color = color, shape = RoundedCornerShape(7.dp)) {
+        Icon(icon, null, Modifier.padding(5.dp).size(20.dp), tint = Color.White)
     }
 }
